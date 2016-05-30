@@ -97,6 +97,54 @@ public final class Platform {
     _UNSAFE.putObjectVolatile(object, offset, value);
   }
 
+  public static int getInt(long address) {
+    return _UNSAFE.getInt(address);
+  }
+
+  public static void putInt(long address, int value) {
+    _UNSAFE.putInt(address, value);
+  }
+
+  public static byte getByte(long address) {
+    return _UNSAFE.getByte(address);
+  }
+
+  public static void putByte(long address, byte value) {
+    _UNSAFE.putByte(address, value);
+  }
+
+  public static short getShort(long address) {
+    return _UNSAFE.getShort(address);
+  }
+
+  public static void putShort(long address, short value) {
+    _UNSAFE.putShort(address, value);
+  }
+
+  public static long getLong(long address) {
+    return _UNSAFE.getLong(address);
+  }
+
+  public static void putLong(long address, long value) {
+    _UNSAFE.putLong(address, value);
+  }
+
+  public static float getFloat(long address) {
+    return _UNSAFE.getFloat(address);
+  }
+
+  public static void putFloat(long address, float value) {
+    _UNSAFE.putFloat(address, value);
+  }
+
+  public static double getDouble(long address) {
+    return _UNSAFE.getDouble(address);
+  }
+
+  public static void putDouble(long address, double value) {
+    _UNSAFE.putDouble(address, value);
+  }
+
   public static long allocateMemory(long size) {
     return _UNSAFE.allocateMemory(size);
   }

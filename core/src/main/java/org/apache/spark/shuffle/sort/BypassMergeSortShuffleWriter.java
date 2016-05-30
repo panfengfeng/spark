@@ -17,17 +17,28 @@
 
 package org.apache.spark.shuffle.sort;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+
+import io.netty.buffer.*;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
+import io.netty.buffer.Unpooled;
+import org.apache.spark.serializer.DeserializationStream;
+import org.apache.spark.serializer.SerializationStream;
+
 import scala.None$;
 import scala.Option;
 import scala.Product2;
 import scala.Tuple2;
 import scala.collection.Iterator;
+import scala.reflect.ClassTag;
+import scala.reflect.ClassTag$;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closeables;
@@ -71,9 +82,14 @@ import org.apache.spark.util.Utils;
  * <p>
  * There have been proposals to completely remove this code path; see SPARK-6026 for details.
  */
+
 final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
   private final Logger logger = LoggerFactory.getLogger(BypassMergeSortShuffleWriter.class);
+
+  private static final ClassTag<Object> OBJECT_CLASS_TAG = ClassTag$.MODULE$.Object();
+
+  private ByteBufOutputStream serbytebuf;
 
   private final int fileBufferSize;
   private final boolean transferToEnabled;
@@ -118,6 +134,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     taskContext.taskMetrics().shuffleWriteMetrics_$eq(Option.apply(writeMetrics));
     this.serializer = Serializer.getSerializer(dep.serializer());
     this.shuffleBlockResolver = shuffleBlockResolver;
+
+    this.serbytebuf = new ByteBufOutputStream(Unpooled.directBuffer(256 * 1024 * 1024));
   }
 
   @Override
@@ -130,6 +148,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       return;
     }
     final SerializerInstance serInstance = serializer.newInstance();
+
+    final SerializationStream serstreambytebuf = serInstance.serializeStream(serbytebuf);
+
     final long openStartTime = System.nanoTime();
     partitionWriters = new DiskBlockObjectWriter[numPartitions];
     for (int i = 0; i < numPartitions; i++) {
@@ -145,12 +166,39 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     // included in the shuffle write time.
     writeMetrics.incShuffleWriteTime(System.nanoTime() - openStartTime);
 
+    int num = 0;
     while (records.hasNext()) {
-      final Product2<K, V> record = records.next();
-      final K key = record._1();
-      partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+        final Product2<K, V> record = records.next();
+        final K key = record._1();
+        final V value = record._2();
+        partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+
+      /*put key value into buffer*/
+      // serialize some key into buffer
+      if (num < 5) {
+          System.out.println("num " + num + " key@panda " + key + " value@panda " + value);
+          serstreambytebuf.writeKey(key, OBJECT_CLASS_TAG);
+          serstreambytebuf.writeValue(value, OBJECT_CLASS_TAG);
+          num ++;
+      }
+    }
+    serstreambytebuf.flush();
+    serstreambytebuf.close();
+    final DeserializationStream deserstreambytebuf = serInstance.deserializeStream(new ByteBufInputStream(serbytebuf.buffer()));
+    final Iterator<Tuple2<Object,Object>> deserIter = deserstreambytebuf.asKeyValueIterator();
+    while(deserIter.hasNext()) {
+        final Tuple2<Object,Object> kv = deserIter.next();
+        final K keybytebuf = (K) kv._1();
+        final V valuebytebuf = (V) kv._2();
+        System.out.println("keybytebuf@panda " + keybytebuf + " valuebytebuf@panda " + valuebytebuf);
     }
 
+    /*
+    for (int i=0; i<num; i++) {
+        System.out.println("deserstreambytebuf key@panda " + deserstreambytebuf.readKey(OBJECT_CLASS_TAG));
+    }
+    */
+    long mergestart = System.currentTimeMillis();
     for (DiskBlockObjectWriter writer : partitionWriters) {
       writer.commitAndClose();
     }
@@ -159,6 +207,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     File tmp = Utils.tempFileWith(output);
     partitionLengths = writePartitionedFile(tmp);
     shuffleBlockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, tmp);
+    long mergeend = System.currentTimeMillis();
+    long mergetime = mergeend - mergestart;
     mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
   }
 

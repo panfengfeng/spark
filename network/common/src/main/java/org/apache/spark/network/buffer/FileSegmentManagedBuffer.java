@@ -56,6 +56,7 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public ByteBuffer nioByteBuffer() throws IOException {
+    System.out.println("FileSegmentManagedBuffer nioByteBuffer@panda");
     FileChannel channel = null;
     try {
       channel = new RandomAccessFile(file, "r").getChannel();
@@ -93,6 +94,7 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public InputStream createInputStream() throws IOException {
+    System.out.println("FileSegmentManagedBuffer createInputStream@panda");
     FileInputStream is = null;
     try {
       is = new FileInputStream(file);
@@ -129,6 +131,7 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public Object convertToNetty() throws IOException {
+    System.out.println("FileSegmentManagedBuffer convertToNetty@panda");
     if (conf.lazyFileDescriptor()) {
       return new LazyFileRegion(file, offset, length);
     } else {

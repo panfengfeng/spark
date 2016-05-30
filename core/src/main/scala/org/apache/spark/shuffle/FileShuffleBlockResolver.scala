@@ -99,6 +99,7 @@ private[spark] class FileShuffleBlockResolver(conf: SparkConf)
   }
 
   override def getBlockData(blockId: ShuffleBlockId): ManagedBuffer = {
+    System.out.println("FileShuffleBlockResolver.getBlockData@panda");
     val file = blockManager.diskBlockManager.getFile(blockId)
     new FileSegmentManagedBuffer(transportConf, file, 0, file.length)
   }

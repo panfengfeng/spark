@@ -21,6 +21,8 @@ import java.io._
 import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.spark.unsafe.Platform
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -76,6 +78,12 @@ private[spark] class BlockManager(
   extends BlockDataManager with Logging {
 
   val diskBlockManager = new DiskBlockManager(this, conf)
+
+//  val nvmbufferlen : Long = 419430400
+//  val nvmbufferaddress : Long = Platform.allocateMemory(nvmbufferlen)
+//  var nvmbufferused : Long = 0
+
+//  System.out.println("BlockManager@panda, nvmbufferaddress " + nvmbufferaddress + " nvmbufferused " + nvmbufferused + " nvmbufferlen " + nvmbufferlen)
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
 
