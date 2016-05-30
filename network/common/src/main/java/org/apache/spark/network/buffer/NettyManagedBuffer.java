@@ -47,6 +47,7 @@ public final class NettyManagedBuffer extends ManagedBuffer {
 
   @Override
   public InputStream createInputStream() throws IOException {
+    System.out.println("NettyManagedBuffer createInputStream()@panda");
     return new ByteBufInputStream(buf);
   }
 

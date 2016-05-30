@@ -44,6 +44,11 @@
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
+        <groupId>de.ruedigermoeller</groupId>
+            <artifactId>fst</artifactId>
+                <version>2.47</version>
+    </dependency>
+    <dependency>
       <groupId>com.twitter</groupId>
       <artifactId>chill_${scala.binary.version}</artifactId>
     </dependency>

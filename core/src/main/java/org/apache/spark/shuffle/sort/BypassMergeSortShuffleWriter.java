@@ -135,7 +135,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.serializer = Serializer.getSerializer(dep.serializer());
     this.shuffleBlockResolver = shuffleBlockResolver;
 
-    this.serbytebuf = new ByteBufOutputStream(Unpooled.directBuffer(256 * 1024 * 1024));
+    this.serbytebuf = blockManager.serbytebuf();
   }
 
   @Override
@@ -148,7 +148,6 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       return;
     }
     final SerializerInstance serInstance = serializer.newInstance();
-
     final SerializationStream serstreambytebuf = serInstance.serializeStream(serbytebuf);
 
     final long openStartTime = System.nanoTime();
@@ -166,38 +165,19 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     // included in the shuffle write time.
     writeMetrics.incShuffleWriteTime(System.nanoTime() - openStartTime);
 
-    int num = 0;
     while (records.hasNext()) {
         final Product2<K, V> record = records.next();
         final K key = record._1();
         final V value = record._2();
         partitionWriters[partitioner.getPartition(key)].write(key, record._2());
 
-      /*put key value into buffer*/
-      // serialize some key into buffer
-      if (num < 5) {
-          System.out.println("num " + num + " key@panda " + key + " value@panda " + value);
-          serstreambytebuf.writeKey(key, OBJECT_CLASS_TAG);
-          serstreambytebuf.writeValue(value, OBJECT_CLASS_TAG);
-          num ++;
-      }
+        System.out.println("num " + " key@panda " + key + " value@panda " + value);
+        serstreambytebuf.writeKey(key, OBJECT_CLASS_TAG);
+        serstreambytebuf.writeValue(value, OBJECT_CLASS_TAG);
     }
     serstreambytebuf.flush();
     serstreambytebuf.close();
-    final DeserializationStream deserstreambytebuf = serInstance.deserializeStream(new ByteBufInputStream(serbytebuf.buffer()));
-    final Iterator<Tuple2<Object,Object>> deserIter = deserstreambytebuf.asKeyValueIterator();
-    while(deserIter.hasNext()) {
-        final Tuple2<Object,Object> kv = deserIter.next();
-        final K keybytebuf = (K) kv._1();
-        final V valuebytebuf = (V) kv._2();
-        System.out.println("keybytebuf@panda " + keybytebuf + " valuebytebuf@panda " + valuebytebuf);
-    }
-
-    /*
-    for (int i=0; i<num; i++) {
-        System.out.println("deserstreambytebuf key@panda " + deserstreambytebuf.readKey(OBJECT_CLASS_TAG));
-    }
-    */
+    System.out.println("serbytebuf size@panda " + serbytebuf.buffer().readableBytes());
     long mergestart = System.currentTimeMillis();
     for (DiskBlockObjectWriter writer : partitionWriters) {
       writer.commitAndClose();

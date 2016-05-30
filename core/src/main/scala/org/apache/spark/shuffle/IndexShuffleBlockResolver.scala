@@ -21,7 +21,7 @@ import java.io._
 
 import com.google.common.io.ByteStreams
 
-import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
+import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, NettyManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.netty.SparkTransportConf
 import org.apache.spark.shuffle.IndexShuffleBlockResolver.NOOP_REDUCE_ID
 import org.apache.spark.storage._
@@ -194,11 +194,17 @@ private[spark] class IndexShuffleBlockResolver(
       ByteStreams.skipFully(in, blockId.reduceId * 8)
       val offset = in.readLong()
       val nextOffset = in.readLong()
+
+      val nettymanagedbuffer = new NettyManagedBuffer(blockManager.serbytebuf.buffer())
+      System.out.println("nettymanagedbuffer size@panda " + nettymanagedbuffer.size())
+/*
       new FileSegmentManagedBuffer(
         transportConf,
         getDataFile(blockId.shuffleId, blockId.mapId),
         offset,
         nextOffset - offset)
+*/
+      nettymanagedbuffer
     } finally {
       in.close()
     }
