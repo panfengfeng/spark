@@ -21,9 +21,9 @@ import java.io._
 
 import com.google.common.io.ByteStreams
 
-import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
+import org.apache.spark.network.buffer.{NettyManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.netty.SparkTransportConf
-import org.apache.spark.shuffle.IndexShuffleBlockResolver.NOOP_REDUCE_ID
+import org.apache.spark.shuffle.NVMBufferShuffleBlockResolver.NOOP_REDUCE_ID
 import org.apache.spark.storage._
 import org.apache.spark.util.Utils
 import org.apache.spark.{SparkEnv, Logging, SparkConf}
@@ -39,7 +39,7 @@ import org.apache.spark.{SparkEnv, Logging, SparkConf}
  */
 // Note: Changes to the format in this file should be kept in sync with
 // org.apache.spark.network.shuffle.ExternalShuffleBlockResolver#getSortBasedShuffleBlockData().
-private[spark] class IndexShuffleBlockResolver(
+private[spark] class NVMBufferShuffleBlockResolver(
     conf: SparkConf,
     _blockManager: BlockManager = null)
   extends ShuffleBlockResolver
@@ -186,6 +186,7 @@ private[spark] class IndexShuffleBlockResolver(
   override def getBlockData(blockId: ShuffleBlockId): ManagedBuffer = {
     // The block is actually going to be a range of a single map output file for this map, so
     // find out the consolidated file, then the offset within that from our index
+    System.out.println("IndexShuffleBlockResolver.getBlockData@panda");
     val indexFile = getIndexFile(blockId.shuffleId, blockId.mapId)
 
     val in = new DataInputStream(new FileInputStream(indexFile))
@@ -194,11 +195,16 @@ private[spark] class IndexShuffleBlockResolver(
       val offset = in.readLong()
       val nextOffset = in.readLong()
 
+      val nettymanagedbuffer = new NettyManagedBuffer(blockManager.serbytebuf.buffer())
+      System.out.println("nettymanagedbuffer size@panda " + nettymanagedbuffer.size())
+/*
       new FileSegmentManagedBuffer(
         transportConf,
         getDataFile(blockId.shuffleId, blockId.mapId),
         offset,
         nextOffset - offset)
+*/
+      nettymanagedbuffer
     } finally {
       in.close()
     }
@@ -207,7 +213,7 @@ private[spark] class IndexShuffleBlockResolver(
   override def stop(): Unit = {}
 }
 
-private[spark] object IndexShuffleBlockResolver {
+private[spark] object NVMBufferShuffleBlockResolver {
   // No-op reduce ID used in interactions with disk store.
   // The disk store currently expects puts to relate to a (map, reduce) pair, but in the sort
   // shuffle outputs for several reduces are glommed into a single file.

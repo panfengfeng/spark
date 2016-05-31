@@ -27,11 +27,14 @@ import javax.annotation.Nullable;
 
 import org.apache.spark.serializer.SerializationStream;
 
+import org.apache.spark.shuffle.IndexShuffleBlockResolver;
 import scala.None$;
 import scala.Option;
 import scala.Product2;
 import scala.Tuple2;
 import scala.collection.Iterator;
+import scala.reflect.ClassTag;
+import scala.reflect.ClassTag$;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closeables;
@@ -47,7 +50,7 @@ import org.apache.spark.scheduler.MapStatus;
 import org.apache.spark.scheduler.MapStatus$;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.serializer.SerializerInstance;
-import org.apache.spark.shuffle.IndexShuffleBlockResolver;
+import org.apache.spark.shuffle.NVMBufferShuffleBlockResolver;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.storage.*;
 import org.apache.spark.util.Utils;
@@ -76,9 +79,12 @@ import org.apache.spark.util.Utils;
  * There have been proposals to completely remove this code path; see SPARK-6026 for details.
  */
 
-final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
-  private final Logger logger = LoggerFactory.getLogger(BypassMergeSortShuffleWriter.class);
+final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
+  private final Logger logger = LoggerFactory.getLogger(NVMBufferShuffleWriter.class);
 
+  private static final ClassTag<Object> OBJECT_CLASS_TAG = ClassTag$.MODULE$.Object();
+
+  private ByteBufOutputStream serbytebuf;
   private final int fileBufferSize;
   private final boolean transferToEnabled;
   private final int numPartitions;
@@ -88,9 +94,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private final int shuffleId;
   private final int mapId;
   private final Serializer serializer;
-  private final IndexShuffleBlockResolver shuffleBlockResolver;
+  private final NVMBufferShuffleBlockResolver shuffleBlockResolver;
 
-  /** Array of file writers, one for each partition */
+  /** Array of NVM Buffer writers, one for each partition */
   private DiskBlockObjectWriter[] partitionWriters;
   @Nullable private MapStatus mapStatus;
   private long[] partitionLengths;
@@ -102,10 +108,10 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
    */
   private boolean stopping = false;
 
-  public BypassMergeSortShuffleWriter(
+  public NVMBufferShuffleWriter(
       BlockManager blockManager,
-      IndexShuffleBlockResolver shuffleBlockResolver,
-      BypassMergeSortShuffleHandle<K, V> handle,
+      NVMBufferShuffleBlockResolver shuffleBlockResolver,
+      NVMBufferShuffleHandle<K, V> handle,
       int mapId,
       TaskContext taskContext,
       SparkConf conf) {
@@ -122,6 +128,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     taskContext.taskMetrics().shuffleWriteMetrics_$eq(Option.apply(writeMetrics));
     this.serializer = Serializer.getSerializer(dep.serializer());
     this.shuffleBlockResolver = shuffleBlockResolver;
+
+    this.serbytebuf = blockManager.serbytebuf();
   }
 
   @Override
@@ -134,6 +142,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       return;
     }
     final SerializerInstance serInstance = serializer.newInstance();
+    final SerializationStream serstreambytebuf = serInstance.serializeStream(serbytebuf);
 
     final long openStartTime = System.nanoTime();
     partitionWriters = new DiskBlockObjectWriter[numPartitions];
@@ -153,8 +162,17 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     while (records.hasNext()) {
         final Product2<K, V> record = records.next();
         final K key = record._1();
+        final V value = record._2();
         partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+
+        System.out.println("num " + " key@panda " + key + " value@panda " + value);
+        serstreambytebuf.writeKey(key, OBJECT_CLASS_TAG);
+        serstreambytebuf.writeValue(value, OBJECT_CLASS_TAG);
     }
+    serstreambytebuf.flush();
+    serstreambytebuf.close();
+    System.out.println("serbytebuf size@panda " + serbytebuf.buffer().readableBytes());
+    long mergestart = System.currentTimeMillis();
     for (DiskBlockObjectWriter writer : partitionWriters) {
       writer.commitAndClose();
     }
@@ -163,6 +181,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     File tmp = Utils.tempFileWith(output);
     partitionLengths = writePartitionedFile(tmp);
     shuffleBlockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, tmp);
+    long mergeend = System.currentTimeMillis();
+    long mergetime = mergeend - mergestart;
     mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
   }
 

@@ -88,21 +88,28 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       shuffleId: Int,
       numMaps: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-    if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf, dependency)) {
-      // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
-      // need map-side aggregation, then write numPartitions files directly and just concatenate
-      // them at the end. This avoids doing serialization and deserialization twice to merge
-      // together the spilled files, which would happen with the normal code path. The downside is
-      // having multiple files open at a time and thus more memory allocated to buffers.
-      new BypassMergeSortShuffleHandle[K, V](
-        shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
-    } else if (SortShuffleManager.canUseSerializedShuffle(dependency)) {
-      // Otherwise, try to buffer map outputs in a serialized form, since this is more efficient:
-      new SerializedShuffleHandle[K, V](
+    if(conf.getBoolean("spark.shuffle.nvmbuffer.supported",true)) {
+      System.out.println("registerShuffle@panda nvmbuffer support")
+      new NVMBufferShuffleHandle[K, V](
         shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else {
-      // Otherwise, buffer map outputs in a deserialized form:
-      new BaseShuffleHandle(shuffleId, numMaps, dependency)
+      System.out.println("registerShuffle@panda nvmbuffer notsupport")
+      if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf, dependency)) {
+        // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
+        // need map-side aggregation, then write numPartitions files directly and just concatenate
+        // them at the end. This avoids doing serialization and deserialization twice to merge
+        // together the spilled files, which would happen with the normal code path. The downside is
+        // having multiple files open at a time and thus more memory allocated to buffers.
+        new BypassMergeSortShuffleHandle[K, V](
+          shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
+      } else if (SortShuffleManager.canUseSerializedShuffle(dependency)) {
+        // Otherwise, try to buffer map outputs in a serialized form, since this is more efficient:
+        new SerializedShuffleHandle[K, V](
+          shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
+      } else {
+        // Otherwise, buffer map outputs in a deserialized form:
+        new BaseShuffleHandle(shuffleId, numMaps, dependency)
+      }
     }
   }
 
@@ -128,6 +135,15 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       handle.shuffleId, handle.asInstanceOf[BaseShuffleHandle[_, _, _]].numMaps)
     val env = SparkEnv.get
     handle match {
+      case nvmbufferShuffleHandle: NVMBufferShuffleHandle[K @unchecked, V @unchecked] =>
+        System.out.println("nvmbufferShuffleHandle@panda")
+        new NVMBufferShuffleWriter(
+          env.blockManager,
+          new NVMBufferShuffleBlockResolver(conf),
+          nvmbufferShuffleHandle,
+          mapId,
+          context,
+          env.conf)
       case unsafeShuffleHandle: SerializedShuffleHandle[K @unchecked, V @unchecked] =>
         System.out.println("unsafeShuffleHandle@panda")
         new UnsafeShuffleWriter(
@@ -223,6 +239,17 @@ private[spark] class SerializedShuffleHandle[K, V](
  * bypass merge sort shuffle path.
  */
 private[spark] class BypassMergeSortShuffleHandle[K, V](
+  shuffleId: Int,
+  numMaps: Int,
+  dependency: ShuffleDependency[K, V, V])
+  extends BaseShuffleHandle(shuffleId, numMaps, dependency) {
+}
+
+/**
+ * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
+ * nvm buffer merge sort shuffle path.
+ */
+private[spark] class NVMBufferShuffleHandle[K, V](
   shuffleId: Int,
   numMaps: Int,
   dependency: ShuffleDependency[K, V, V])
