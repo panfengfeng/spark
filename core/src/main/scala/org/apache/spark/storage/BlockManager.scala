@@ -20,7 +20,8 @@ package org.apache.spark.storage
 import java.io._
 import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.util.concurrent.ConcurrentHashMap
-import io.netty.buffer.{ByteBufOutputStream, ByteBufInputStream, Unpooled}
+import java.util.ArrayList
+import io.netty.buffer._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.concurrent.duration._
@@ -78,8 +79,14 @@ private[spark] class BlockManager(
 
   val diskBlockManager = new DiskBlockManager(this, conf)
 
-  val granularity = conf.getInt("spark.nvmbuffer.granularity ", 512 * 1024 * 1024)
-  val serbytebuf = new ByteBufOutputStream(Unpooled.directBuffer(granularity))
+  // 1. ConcurrentHashMap[shuffleID_mapID_reduceID, ArrayList[ByteBuf]]
+  // 2. ConcurrentHashMap[mapID, hashmap[reduceID, ArrayList[ByteBuf]]]
+  // val nvmbufferManager = new ConcurrentHashMap[Int, mutable.HashMap[Int, ArrayBuffer[ByteBuf]]]();
+  val nvmbufferManager = new ConcurrentHashMap[String, ArrayList[ByteBuf]]()
+  private val granularity = conf.getInt("spark.nvmbuffer.granularity", 1 * 1024 * 1024)
+  private val maxcapacity = conf.getInt("spark.nvmbuffer.maxcapacity", 10 * 1024 * 1024)
+  private val autoscaling = conf.getBoolean("spark.nvmbuffer.autoscaling", true)
+  System.out.println("blockManager.granularity@panda " + granularity)
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
 
@@ -206,6 +213,18 @@ private[spark] class BlockManager(
     }
   }
 
+  def getgranularity(): Int = {
+    granularity
+  }
+
+  def getmaxcapacity(): Int = {
+    maxcapacity
+  }
+
+  def getautoscaling(): Boolean = {
+    autoscaling
+  }
+
   private def registerWithExternalShuffleServer() {
     logInfo("Registering executor with local external shuffle service.")
     val shuffleConfig = new ExecutorShuffleInfo(
@@ -299,7 +318,11 @@ private[spark] class BlockManager(
    */
   override def getBlockData(blockId: BlockId): ManagedBuffer = {
     if (blockId.isShuffle) {
-      shuffleManager.shuffleBlockResolver.getBlockData(blockId.asInstanceOf[ShuffleBlockId])
+      if(conf.getBoolean("spark.shuffle.nvmbuffer.supported",true)) {
+        shuffleManager.nvmbuffershuffleResolver.getBlockData(blockId.asInstanceOf[ShuffleBlockId])
+      } else {
+        shuffleManager.shuffleBlockResolver.getBlockData(blockId.asInstanceOf[ShuffleBlockId])
+      }
     } else {
       val blockBytesOpt = doGetLocal(blockId, asBlockResult = false)
         .asInstanceOf[Option[ByteBuffer]]
@@ -671,6 +694,18 @@ private[spark] class BlockManager(
     val syncWrites = conf.getBoolean("spark.shuffle.sync", false)
     new DiskBlockObjectWriter(file, serializerInstance, bufferSize, compressStream,
       syncWrites, writeMetrics, blockId)
+  }
+
+  def getNVMBufferWriter(
+                     shuffleID: Int,
+                     mapID: Int,
+                     reduceID: Int,
+                     blockManager: BlockManager,
+                     serializerInstance: SerializerInstance,
+                     writeMetrics: ShuffleWriteMetrics): NVMBufferObjectWriter = {
+    val blockID = new ShuffleBlockId(shuffleID, mapID, reduceID)
+    val compressStream: OutputStream => OutputStream = wrapForCompression(blockID, _)
+    new NVMBufferObjectWriter(blockManager, serializerInstance, compressStream, writeMetrics, blockID)
   }
 
   /**

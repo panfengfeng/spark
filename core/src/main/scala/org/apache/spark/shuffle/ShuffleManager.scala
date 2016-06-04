@@ -60,6 +60,8 @@ private[spark] trait ShuffleManager {
    */
   def shuffleBlockResolver: ShuffleBlockResolver
 
+  def nvmbuffershuffleResolver: ShuffleBlockResolver
+
   /** Shut down this ShuffleManager. */
   def stop(): Unit
 }

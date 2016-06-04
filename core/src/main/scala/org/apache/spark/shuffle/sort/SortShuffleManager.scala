@@ -81,6 +81,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
 
   override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
 
+  override val nvmbuffershuffleResolver = new NVMBufferShuffleBlockResolver(conf)
   /**
    * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
    */
@@ -89,11 +90,9 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       numMaps: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
     if(conf.getBoolean("spark.shuffle.nvmbuffer.supported",true)) {
-      System.out.println("registerShuffle@panda nvmbuffer support")
       new NVMBufferShuffleHandle[K, V](
         shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
     } else {
-      System.out.println("registerShuffle@panda nvmbuffer notsupport")
       if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf, dependency)) {
         // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
         // need map-side aggregation, then write numPartitions files directly and just concatenate
@@ -136,16 +135,14 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
     val env = SparkEnv.get
     handle match {
       case nvmbufferShuffleHandle: NVMBufferShuffleHandle[K @unchecked, V @unchecked] =>
-        System.out.println("nvmbufferShuffleHandle@panda")
         new NVMBufferShuffleWriter(
           env.blockManager,
-          new NVMBufferShuffleBlockResolver(conf),
+          nvmbuffershuffleResolver.asInstanceOf[NVMBufferShuffleBlockResolver],
           nvmbufferShuffleHandle,
           mapId,
           context,
           env.conf)
       case unsafeShuffleHandle: SerializedShuffleHandle[K @unchecked, V @unchecked] =>
-        System.out.println("unsafeShuffleHandle@panda")
         new UnsafeShuffleWriter(
           env.blockManager,
           shuffleBlockResolver.asInstanceOf[IndexShuffleBlockResolver],
@@ -155,7 +152,6 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           context,
           env.conf)
       case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
-        System.out.println("bypassMergeSortHandle@panda")
         new BypassMergeSortShuffleWriter(
           env.blockManager,
           shuffleBlockResolver.asInstanceOf[IndexShuffleBlockResolver],
@@ -164,7 +160,6 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           context,
           env.conf)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
-        System.out.println("SortShuffleWriter@panda")
         new SortShuffleWriter(shuffleBlockResolver, other, mapId, context)
     }
   }
@@ -182,6 +177,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
   /** Shut down this ShuffleManager. */
   override def stop(): Unit = {
     shuffleBlockResolver.stop()
+    nvmbuffershuffleResolver.stop()
   }
 }
 

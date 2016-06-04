@@ -237,6 +237,7 @@ final class ShuffleBlockFetcherIterator(
       try {
         System.out.println("fetchLocalBlocks@panda, blockID " + blockId.toString)
         val buf = blockManager.getBlockData(blockId)
+        System.out.println("fetchLocalBlocks@panda, buf size " + buf.size())
         shuffleMetrics.incLocalBlocksFetched(1)
         shuffleMetrics.incLocalBytesRead(buf.size)
         buf.retain()

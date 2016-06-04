@@ -71,6 +71,8 @@ private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager 
     fileShuffleBlockResolver
   }
 
+  override val nvmbuffershuffleResolver = new NVMBufferShuffleBlockResolver(conf)
+
   /** Shut down this ShuffleManager. */
   override def stop(): Unit = {
     shuffleBlockResolver.stop()
