@@ -27,6 +27,7 @@ import java.nio.channels.FileChannel;
 
 import com.google.common.base.Objects;
 import com.google.common.io.ByteStreams;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.DefaultFileRegion;
 
 import org.apache.spark.network.util.JavaUtils;
@@ -52,6 +53,11 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
   @Override
   public long size() {
     return length;
+  }
+
+  @Override
+  public ByteBuf getByteBuf() throws IOException {
+      return null;
   }
 
   @Override

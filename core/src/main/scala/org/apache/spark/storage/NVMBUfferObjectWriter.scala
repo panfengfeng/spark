@@ -80,7 +80,6 @@ private[spark] class NVMBufferObjectWriter(
   private var numRecordsWritten = 0
 
   def open(): NVMBufferObjectWriter = {
-    System.out.println("directBuffer@panda bytebufsize " + bytebufSize)
     val serbytebuf = if (autoscaling)
                         new ByteBufOutputStream(Unpooled.directBuffer(bytebufSize))
                      else
@@ -159,7 +158,6 @@ private[spark] class NVMBufferObjectWriter(
     objOut.writeValue(value)
     if (!autoscaling) {
       val index = arraylist.size()
-      System.out.println("writeindex " + arraylist.get(index -1).writerIndex() + " writablebytes " + arraylist.get(index -1).writableBytes())
       if (arraylist.get(index -1).writableBytes() < 1024) {
         objOut.flush()
         bs.flush()

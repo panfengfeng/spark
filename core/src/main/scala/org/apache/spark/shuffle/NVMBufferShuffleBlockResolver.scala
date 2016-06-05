@@ -86,17 +86,8 @@ private[spark] class NVMBufferShuffleBlockResolver(
     // The block is actually going to be a range of a single map output file for this map, so
     // find out the consolidated file, then the offset within that from our index
     val arraylist = blockManager.nvmbufferManager.get(blockId.toString)
-    val index = arraylist.size()
-    System.out.println("NVMBufferShuffleBlockResolver getBlockData index@panda " + index + " blockId " + blockId.toString)
-    var sum: Int = 0
-    for(ele <- arraylist.asScala) {
-      System.out.println("Bytebuf size@panda " + ele.readableBytes() + " " + ele.readerIndex() + " " + ele.writerIndex() + " " + ele.isDirect + " " + ele.writableBytes() + " " + ele.capacity())
-      sum += ele.readableBytes()
-    }
-    val wrappedNVMBuffer = Unpooled.wrappedBuffer(arraylist.size(), arraylist.asScala:_*)
-    val nettymanagedbuffer = new NettyManagedBuffer(wrappedNVMBuffer)
-    System.out.println("sum is " + sum + " wrappedNVMBuffer size@panda " + wrappedNVMBuffer.readableBytes() + " nettymanagedbuffer size " + nettymanagedbuffer.size())
-    nettymanagedbuffer
+    val wrappedNVMBuffer = Unpooled.wrappedBuffer(arraylist.size() + 1, arraylist.asScala:_*)
+    new NettyManagedBuffer(wrappedNVMBuffer)
   }
 
   override def stop(): Unit = {}

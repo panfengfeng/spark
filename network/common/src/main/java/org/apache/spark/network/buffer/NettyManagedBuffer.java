@@ -36,6 +36,11 @@ public final class NettyManagedBuffer extends ManagedBuffer {
   }
 
   @Override
+  public ByteBuf getByteBuf() throws IOException {
+        return buf;
+  }
+
+  @Override
   public long size() {
     return buf.readableBytes();
   }

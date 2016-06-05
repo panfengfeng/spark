@@ -20,9 +20,17 @@ package org.apache.spark.shuffle.sort;
 import java.io.IOException;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
-
+import java.io.InputStream;
+import java.io.SequenceInputStream;
+import java.util.Enumeration;
+import java.util.Vector;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
+import org.apache.spark.serializer.DeserializationStream;
+import scala.collection.JavaConverters.*;
 import org.apache.spark.shuffle.NVMBufferShuffleBlockResolver;
 import scala.None$;
 import scala.Option;
@@ -144,7 +152,47 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         while (records.hasNext()) {
             final Product2<K, V> record = records.next();
             final K key = record._1();
+            System.out.println("key@panda " + key + " value@panda " + record._2());
             partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+        }
+
+        for (int i = 0; i < numPartitions; i++) {
+            int size = partitionWriters[i].arraylist().size();
+            System.out.println("partitionWriters[i].arraylist().size@panda " + size);
+            ByteBuf bytebufs = Unpooled.wrappedBuffer(size + 1, partitionWriters[i].arraylist().toArray(new ByteBuf[0]));
+            if (bytebufs instanceof CompositeByteBuf) {
+                System.out.println("CompositeByteBuf@panda");
+                java.util.Iterator<ByteBuf> byteiter = ((CompositeByteBuf) bytebufs).iterator();
+                Vector<ByteBufInputStream> vector = new Vector();
+                while (byteiter.hasNext()) {
+                    ByteBuf buf = byteiter.next();
+                    ByteBufInputStream deserbytebuf = new ByteBufInputStream(buf);
+                    vector.addElement(deserbytebuf);
+                }
+
+                Enumeration<ByteBufInputStream> e = vector.elements();
+                System.out.println("vector@panda size " + vector.size());
+                SequenceInputStream sis = new SequenceInputStream(e);
+                DeserializationStream deser = serInstance.deserializeStream(sis);
+                Iterator<Tuple2<Object, Object>> kviter = deser.asKeyValueIterator();
+                while (kviter.hasNext()) {
+                    final Tuple2<Object, Object> kv = kviter.next();
+                    final K k = (K) kv._1();
+                    final V v = (V) kv._2();
+                    System.out.println("k2@panda " + k + " v2@panda " + v);
+                }
+            } else {
+                System.out.println("ByteBuf@panda");
+                ByteBufInputStream deserbytebuf = new ByteBufInputStream(bytebufs);
+                DeserializationStream objIn = serInstance.deserializeStream(deserbytebuf);
+                Iterator<Tuple2<Object,Object>> kviter = objIn.asKeyValueIterator();
+                while(kviter.hasNext()) {
+                    final Tuple2<Object,Object> kv = kviter.next();
+                    final K k = (K) kv._1();
+                    final V v = (V) kv._2();
+                    System.out.println("k@panda " + k + " v@panda " + v);
+                }
+            }
         }
 
         for (NVMBufferObjectWriter writer : partitionWriters) {

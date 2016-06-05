@@ -17,6 +17,8 @@
 
 package org.apache.spark.network.buffer;
 
+import io.netty.buffer.ByteBuf;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -39,6 +41,7 @@ public abstract class ManagedBuffer {
   /** Number of bytes of the data. */
   public abstract long size();
 
+  public abstract ByteBuf getByteBuf() throws IOException;
   /**
    * Exposes this buffer's data as an NIO ByteBuffer. Changing the position and limit of the
    * returned ByteBuffer should not affect the content of this buffer.

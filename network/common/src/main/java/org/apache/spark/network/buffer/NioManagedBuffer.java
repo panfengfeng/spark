@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import com.google.common.base.Objects;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 
@@ -41,6 +42,11 @@ public final class NioManagedBuffer extends ManagedBuffer {
   }
 
   @Override
+  public ByteBuf getByteBuf() throws IOException {
+      return null;
+  }
+
+    @Override
   public ByteBuffer nioByteBuffer() throws IOException {
     return buf.duplicate();
   }

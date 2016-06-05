@@ -20,11 +20,14 @@ package org.apache.spark.storage
 import java.io.InputStream
 import java.util.concurrent.LinkedBlockingQueue
 
+import io.netty.buffer.CompositeByteBuf
+
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet, Queue}
 import scala.util.control.NonFatal
 
 import org.apache.spark.{Logging, SparkException, TaskContext}
-import org.apache.spark.network.buffer.ManagedBuffer
+import org.apache.spark.network.buffer.{NettyManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, ShuffleClient}
 import org.apache.spark.shuffle.FetchFailedException
 import org.apache.spark.util.Utils
@@ -237,7 +240,6 @@ final class ShuffleBlockFetcherIterator(
       try {
         System.out.println("fetchLocalBlocks@panda, blockID " + blockId.toString)
         val buf = blockManager.getBlockData(blockId)
-        System.out.println("fetchLocalBlocks@panda, buf size " + buf.size())
         shuffleMetrics.incLocalBlocksFetched(1)
         shuffleMetrics.incLocalBytesRead(buf.size)
         buf.retain()
