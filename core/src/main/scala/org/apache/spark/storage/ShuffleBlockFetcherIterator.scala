@@ -22,12 +22,11 @@ import java.util.concurrent.LinkedBlockingQueue
 
 import io.netty.buffer.CompositeByteBuf
 
-import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet, Queue}
 import scala.util.control.NonFatal
 
 import org.apache.spark.{Logging, SparkException, TaskContext}
-import org.apache.spark.network.buffer.{NettyManagedBuffer, ManagedBuffer}
+import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.network.shuffle.{BlockFetchingListener, ShuffleClient}
 import org.apache.spark.shuffle.FetchFailedException
 import org.apache.spark.util.Utils
@@ -305,7 +304,13 @@ final class ShuffleBlockFetcherIterator(
 
       case SuccessFetchResult(blockId, address, _, buf) =>
         try {
-          (result.blockId, new BufferReleasingInputStream(buf.createInputStream(), this))
+          if (buf.getByteBuf.isInstanceOf[CompositeByteBuf]) {
+            System.out.println("next NettyManageBuffer CompositeByteBuf@panda")
+            (result.blockId, new NVMBufferReleasingInputStream(buf, buf.createInputStream(), this))
+          } else {
+            System.out.println("next OtherManageBuffer@panda")
+            (result.blockId, new BufferReleasingInputStream(buf.createInputStream(), this))
+          }
         } catch {
           case NonFatal(t) =>
             throwFetchFailedException(blockId, address, t)
@@ -332,10 +337,48 @@ final class ShuffleBlockFetcherIterator(
   }
 }
 
+class NVMBufferReleasingInputStream(
+                                          private val buf: ManagedBuffer,
+                                          private val delegate: InputStream,
+                                          private val iterator: ShuffleBlockFetcherIterator)
+  extends InputStream {
+  private[this] var closed = false
+
+  def getbuf(): ManagedBuffer = buf
+
+  def getinputstream(): InputStream = delegate
+
+  override def read(): Int = delegate.read()
+
+  override def close(): Unit = {
+    if (!closed) {
+      delegate.close()
+      iterator.releaseCurrentResultBuffer()
+      closed = true
+    }
+  }
+
+  override def available(): Int = delegate.available()
+
+  override def mark(readlimit: Int): Unit = delegate.mark(readlimit)
+
+  override def skip(n: Long): Long = delegate.skip(n)
+
+  override def markSupported(): Boolean = delegate.markSupported()
+
+  override def read(b: Array[Byte]): Int = delegate.read(b)
+
+  override def read(b: Array[Byte], off: Int, len: Int): Int = delegate.read(b, off, len)
+
+  override def reset(): Unit = delegate.reset()
+}
+
+
+
 /**
  * Helper class that ensures a ManagedBuffer is release upon InputStream.close()
  */
-private class BufferReleasingInputStream(
+class BufferReleasingInputStream(
     private val delegate: InputStream,
     private val iterator: ShuffleBlockFetcherIterator)
   extends InputStream {

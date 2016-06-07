@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import com.google.common.base.Preconditions;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
 import org.apache.spark.network.buffer.ManagedBuffer;
@@ -53,7 +54,12 @@ public class TestManagedBuffer extends ManagedBuffer {
     return underlying.size();
   }
 
-  @Override
+    @Override
+    public ByteBuf getByteBuf() throws IOException {
+        return null;
+    }
+
+    @Override
   public ByteBuffer nioByteBuffer() throws IOException {
     return underlying.nioByteBuffer();
   }

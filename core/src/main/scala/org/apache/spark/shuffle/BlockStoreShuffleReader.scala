@@ -17,9 +17,12 @@
 
 package org.apache.spark.shuffle
 
+import java.io.InputStream
+
+import _root_.io.netty.buffer.{ByteBufInputStream, CompositeByteBuf}
 import org.apache.spark._
 import org.apache.spark.serializer.Serializer
-import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
+import org.apache.spark.storage.{BufferReleasingInputStream, NVMBufferReleasingInputStream, BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -49,7 +52,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       SparkEnv.get.conf.getSizeAsMb("spark.reducer.maxSizeInFlight", "48m") * 1024 * 1024)
 
     // Wrap the streams for compression based on configuration
-    val wrappedStreams = blockFetcherItr.map { case (blockId, inputStream) =>
+    val wrappedStreams: Iterator[InputStream] = blockFetcherItr.map { case (blockId, inputStream) =>
       blockManager.wrapForCompression(blockId, inputStream)
     }
 
@@ -57,11 +60,20 @@ private[spark] class BlockStoreShuffleReader[K, C](
     val serializerInstance = ser.newInstance()
 
     // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.flatMap { wrappedStream =>
+    val recordIter: Iterator[(Any, Any)] = wrappedStreams.flatMap { wrappedStream =>
+      wrappedStream match {
+        case compositeinstream: NVMBufferReleasingInputStream =>
+          val bytebuf = compositeinstream.getbuf().getByteBuf
+          val list = {
+            (bytebuf.asInstanceOf[CompositeByteBuf]).decompose(0, bytebuf.readableBytes())
+          }
+          serializerInstance.deserializeStream(compositeinstream).asNVMBufferKeyValueIterator(compositeinstream.getinputstream().asInstanceOf[ByteBufInputStream], bytebuf, list)
+        case othersinstream: BufferReleasingInputStream =>
+          serializerInstance.deserializeStream(othersinstream).asKeyValueIterator
+      }
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
       // NextIterator. The NextIterator makes sure that close() is called on the
       // underlying InputStream when all records have been read.
-      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
     }
 
     // Update the context task metrics for each record read.

@@ -86,6 +86,7 @@ private[spark] class NVMBufferShuffleBlockResolver(
     // The block is actually going to be a range of a single map output file for this map, so
     // find out the consolidated file, then the offset within that from our index
     val arraylist = blockManager.nvmbufferManager.get(blockId.toString)
+    System.out.println("arraylist size@panda " + arraylist.size())
     val wrappedNVMBuffer = Unpooled.wrappedBuffer(arraylist.size() + 1, arraylist.asScala:_*)
     new NettyManagedBuffer(wrappedNVMBuffer)
   }

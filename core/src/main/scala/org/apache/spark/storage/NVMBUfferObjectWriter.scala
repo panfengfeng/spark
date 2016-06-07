@@ -158,7 +158,7 @@ private[spark] class NVMBufferObjectWriter(
     objOut.writeValue(value)
     if (!autoscaling) {
       val index = arraylist.size()
-      if (arraylist.get(index -1).writableBytes() < 1024) {
+      if (arraylist.get(index -1).writableBytes() < 32) {
         objOut.flush()
         bs.flush()
         close()

@@ -20,6 +20,7 @@ package org.apache.spark.shuffle
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.nio.ByteBuffer
 
+import _root_.io.netty.buffer.ByteBuf
 import org.mockito.Matchers.{eq => meq, _}
 import org.mockito.Mockito.{mock, when}
 import org.mockito.invocation.InvocationOnMock
@@ -45,6 +46,9 @@ class RecordingManagedBuffer(underlyingBuffer: NioManagedBuffer) extends Managed
   override def createInputStream(): InputStream = underlyingBuffer.createInputStream()
   override def convertToNetty(): AnyRef = underlyingBuffer.convertToNetty()
 
+  def getByteBuf: ByteBuf = {
+    null
+  }
   override def retain(): ManagedBuffer = {
     callsToRetain += 1
     underlyingBuffer.retain()

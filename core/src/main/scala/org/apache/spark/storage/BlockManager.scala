@@ -83,9 +83,9 @@ private[spark] class BlockManager(
   // 2. ConcurrentHashMap[mapID, hashmap[reduceID, ArrayList[ByteBuf]]]
   // val nvmbufferManager = new ConcurrentHashMap[Int, mutable.HashMap[Int, ArrayBuffer[ByteBuf]]]();
   val nvmbufferManager = new ConcurrentHashMap[String, ArrayList[ByteBuf]]()
-  private val granularity = conf.getInt("spark.nvmbuffer.granularity", 1 * 1024 * 1024)
-  private val maxcapacity = conf.getInt("spark.nvmbuffer.maxcapacity", 10 * 1024 * 1024)
-  private val autoscaling = conf.getBoolean("spark.nvmbuffer.autoscaling", true)
+  private val granularity = conf.getInt("spark.nvmbuffer.granularity", 128)
+  private val maxcapacity = conf.getInt("spark.nvmbuffer.maxcapacity", 128)
+  private val autoscaling = conf.getBoolean("spark.nvmbuffer.autoscaling", false)
   System.out.println("blockManager.granularity@panda " + granularity)
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
@@ -145,11 +145,11 @@ private[spark] class BlockManager(
   // Whether to compress broadcast variables that are stored
   private val compressBroadcast = conf.getBoolean("spark.broadcast.compress", true)
   // Whether to compress shuffle output that are stored
-  private val compressShuffle = conf.getBoolean("spark.shuffle.compress", true)
+  private val compressShuffle = conf.getBoolean("spark.shuffle.compress", false)
   // Whether to compress RDD partitions that are stored serialized
   private val compressRdds = conf.getBoolean("spark.rdd.compress", false)
   // Whether to compress shuffle output temporarily spilled to disk
-  private val compressShuffleSpill = conf.getBoolean("spark.shuffle.spill.compress", true)
+  private val compressShuffleSpill = conf.getBoolean("spark.shuffle.spill.compress", false)
 
   private val slaveEndpoint = rpcEnv.setupEndpoint(
     "BlockManagerEndpoint" + BlockManager.ID_GENERATOR.next,
@@ -1274,7 +1274,11 @@ private[spark] class BlockManager(
    * Wrap an input stream for compression if block compression is enabled for its block type
    */
   def wrapForCompression(blockId: BlockId, s: InputStream): InputStream = {
-    if (shouldCompress(blockId)) compressionCodec.compressedInputStream(s) else s
+    if (shouldCompress(blockId)) {
+      compressionCodec.compressedInputStream(s)
+    } else {
+      s
+    }
   }
 
   /** Serializes into a stream. */

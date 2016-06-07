@@ -82,6 +82,9 @@ class ExternalAppendOnlyMap[K, V, C](
   override protected[this] def taskMemoryManager: TaskMemoryManager = context.taskMemoryManager()
 
   private var currentMap = new SizeTrackingAppendOnlyMap[K, C]
+  if (currentMap == null) {
+    System.out.println("null");
+  }
   private val spilledMaps = new ArrayBuffer[DiskMapIterator]
   private val sparkConf = SparkEnv.get.conf
   private val diskBlockManager = blockManager.diskBlockManager

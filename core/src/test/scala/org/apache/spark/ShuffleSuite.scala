@@ -38,19 +38,27 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
   // test that the shuffle works (rather than retrying until all blocks are local to one Executor).
   conf.set("spark.test.noStageRetry", "true")
 
-  test("groupByKey without compression") {
+  test("sort by key") {
     val myConf = conf.clone().set("spark.shuffle.compress", "false")
-    sc = new SparkContext("local", "test", myConf)
-    val pairs = sc.parallelize(Array((1, 1), (1, 2), (1, 3), (2, 1)), 4)
-    val groups = pairs.groupByKey(4).collect()
+    // val myConf = conf.clone().set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    sc = new SparkContext("local[1]", "test", myConf)
+    val data = sc.parallelize(Seq("5|50|A", "4|60|C", "6|40|B","2|50|D","1|30|C","3|70|A","7|50|A","8|50|F","9|50|Z","10|50|A","11|50|A","12|50|A","13|50|A","14|50|A"))
+    data.sortBy(_.split("\\|")(0), true).collect()
+  }
+
+  ignore("groupByKey without compression") {
+    val myConf = conf.clone().set("spark.shuffle.compress", "false")
+    sc = new SparkContext("local[1]", "test", myConf)
+    val pairs = sc.parallelize(Array((1, 1), (1, 2), (1, 3), (2, 1), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10)), 1)
+    val groups = pairs.groupByKey(1).collect()
     assert(groups.size === 2)
     val valuesFor1 = groups.find(_._1 == 1).get._2
-    assert(valuesFor1.toList.sorted === List(1, 2, 3))
+    assert(valuesFor1.toList.sorted === List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
     val valuesFor2 = groups.find(_._1 == 2).get._2
     assert(valuesFor2.toList.sorted === List(1))
   }
 
-  test("shuffle non-zero block size") {
+  ignore("shuffle non-zero block size") {
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     val NUM_BLOCKS = 3
 
@@ -75,7 +83,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     }
   }
 
-  test("shuffle serializer") {
+  ignore("shuffle serializer") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     val a = sc.parallelize(1 to 10, 2)
@@ -91,7 +99,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(c.count === 10)
   }
 
-  test("zero sized blocks") {
+  ignore("zero sized blocks") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
 
@@ -118,7 +126,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(nonEmptyBlocks.size <= 4)
   }
 
-  test("zero sized blocks without kryo") {
+  ignore("zero sized blocks without kryo") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
 
@@ -143,7 +151,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(nonEmptyBlocks.size <= 4)
   }
 
-  test("shuffle on mutable pairs") {
+  ignore("shuffle on mutable pairs") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     def p[T1, T2](_1: T1, _2: T2): MutablePair[T1, T2] = MutablePair(_1, _2)
@@ -155,7 +163,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     data.foreach { pair => results should contain ((pair._1, pair._2)) }
   }
 
-  test("sorting on mutable pairs") {
+  ignore("sorting on mutable pairs") {
     // This is not in SortingSuite because of the local cluster setup.
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
@@ -170,7 +178,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     results(3) should be ((100, 100))
   }
 
-  test("cogroup using mutable pairs") {
+  ignore("cogroup using mutable pairs") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     def p[T1, T2](_1: T1, _2: T2): MutablePair[T1, T2] = MutablePair(_1, _2)
@@ -197,7 +205,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(results(3)(1).contains("3"))
   }
 
-  test("subtract mutable pairs") {
+  ignore("subtract mutable pairs") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     def p[T1, T2](_1: T1, _2: T2): MutablePair[T1, T2] = MutablePair(_1, _2)
@@ -211,7 +219,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     results(0) should be ((3, 33))
   }
 
-  test("sort with Java non serializable class - Kryo") {
+  ignore("sort with Java non serializable class - Kryo") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     val myConf = conf.clone().set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     sc = new SparkContext("local-cluster[2,1,1024]", "test", myConf)
@@ -225,7 +233,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(c.collect() === Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
   }
 
-  test("sort with Java non serializable class - Java") {
+ ignore("sort with Java non serializable class - Java") {
     // Use a local cluster with 2 processes to make sure there are both local and remote blocks
     sc = new SparkContext("local-cluster[2,1,1024]", "test", conf)
     val a = sc.parallelize(1 to 10, 2)
@@ -241,7 +249,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(thrown.getMessage.toLowerCase.contains("serializable"))
   }
 
-  test("shuffle with different compression settings (SPARK-3426)") {
+  ignore("shuffle with different compression settings (SPARK-3426)") {
     for (
       shuffleSpillCompress <- Set(true, false);
       shuffleCompress <- Set(true, false)
@@ -249,8 +257,8 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
       val myConf = conf.clone()
         .setAppName("test")
         .setMaster("local")
-        .set("spark.shuffle.spill.compress", shuffleSpillCompress.toString)
-        .set("spark.shuffle.compress", shuffleCompress.toString)
+        .set("spark.shuffle.spill.compress", "false")
+        .set("spark.shuffle.compress", "false")
       resetSparkContext()
       sc = new SparkContext(myConf)
       val diskBlockManager = sc.env.blockManager.diskBlockManager
@@ -267,7 +275,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     }
   }
 
-  test("[SPARK-4085] rerun map stage if reduce stage cannot find its local shuffle file") {
+  ignore("[SPARK-4085] rerun map stage if reduce stage cannot find its local shuffle file") {
     val myConf = conf.clone().set("spark.test.noStageRetry", "false")
     sc = new SparkContext("local", "test", myConf)
     val rdd = sc.parallelize(1 to 10, 2).map((_, 1)).reduceByKey(_ + _)
@@ -289,7 +297,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     rdd.count()
   }
 
-  test("metrics for shuffle without aggregation") {
+  ignore("metrics for shuffle without aggregation") {
     sc = new SparkContext("local", "test", conf.clone())
     val numRecords = 10000
 
@@ -306,7 +314,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(metrics.bytesWritten > 0)
   }
 
-  test("metrics for shuffle with aggregation") {
+  ignore("metrics for shuffle with aggregation") {
     sc = new SparkContext("local", "test", conf.clone())
     val numRecords = 10000
 
@@ -322,7 +330,7 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     assert(metrics.bytesWritten > 0)
   }
 
-  test("multiple simultaneous attempts for one task (SPARK-8029)") {
+  ignore("multiple simultaneous attempts for one task (SPARK-8029)") {
     sc = new SparkContext("local", "test", conf)
     val mapTrackerMaster = sc.env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
     val manager = sc.env.shuffleManager

@@ -20,6 +20,9 @@ package org.apache.spark.serializer
 import java.io._
 import java.nio.ByteBuffer
 import javax.annotation.concurrent.NotThreadSafe
+import scala.collection.JavaConversions._
+
+import io.netty.buffer.{CompositeByteBuf, ByteBuf, ByteBufInputStream}
 
 import scala.reflect.ClassTag
 
@@ -191,12 +194,23 @@ abstract class DeserializationStream {
     }
   }
 
+  def equal(index: Int, list: java.util.List[ByteBuf]): Int = {
+    val num: Int = -1
+    var i: Int = 0
+    for (ele <- list) {
+      if (index == ele.writerIndex) {
+        return i
+      }
+      i += 1
+    }
+    num
+  }
   /**
    * Read the elements of this stream through an iterator over key-value pairs. This can only be
    * called once, as reading each element will consume data from the input source.
    */
   def asKeyValueIterator: Iterator[(Any, Any)] = new NextIterator[(Any, Any)] {
-    override protected def getNext() = {
+    override protected def getNext(): (Any, Any) = {
       try {
         (readKey[Any](), readValue[Any]())
       } catch {
@@ -206,7 +220,31 @@ abstract class DeserializationStream {
         }
       }
     }
+    override protected def close() {
+      DeserializationStream.this.close()
+    }
+  }
 
+
+  def asNVMBufferKeyValueIterator(bytebufinstream: ByteBufInputStream,
+                                  bytebuf: ByteBuf,
+                                  list: java.util.List[ByteBuf]): Iterator[(Any, Any)] = new NextIterator[(Any, Any)] {
+    override protected def getNext() = try {
+      val kvpair = (readKey[Any](), readValue[Any]())
+      if (bytebuf.isInstanceOf[CompositeByteBuf]) {
+        val readindex: Int = bytebuf.readerIndex
+        val result: Int = equal(readindex, list)
+        if (result >= 0) {
+          bytebufinstream.readInt()
+        }
+      }
+      kvpair
+    } catch {
+      case eof: EOFException => {
+        finished = true
+        null
+      }
+    }
     override protected def close() {
       DeserializationStream.this.close()
     }
