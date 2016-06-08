@@ -237,7 +237,7 @@ final class ShuffleBlockFetcherIterator(
     while (iter.hasNext) {
       val blockId = iter.next()
       try {
-        System.out.println("fetchLocalBlocks@panda, blockID " + blockId.toString)
+        // System.out.println("fetchLocalBlocks@panda, blockID " + blockId.toString)
         val buf = blockManager.getBlockData(blockId)
         shuffleMetrics.incLocalBlocksFetched(1)
         shuffleMetrics.incLocalBytesRead(buf.size)
@@ -305,10 +305,10 @@ final class ShuffleBlockFetcherIterator(
       case SuccessFetchResult(blockId, address, _, buf) =>
         try {
           if (buf.getByteBuf.isInstanceOf[CompositeByteBuf]) {
-            System.out.println("next NettyManageBuffer CompositeByteBuf@panda")
+            // System.out.println("next NettyManageBuffer CompositeByteBuf@panda")
             (result.blockId, new NVMBufferReleasingInputStream(buf, buf.createInputStream(), this))
           } else {
-            System.out.println("next OtherManageBuffer@panda")
+            // System.out.println("next OtherManageBuffer@panda")
             (result.blockId, new BufferReleasingInputStream(buf.createInputStream(), this))
           }
         } catch {

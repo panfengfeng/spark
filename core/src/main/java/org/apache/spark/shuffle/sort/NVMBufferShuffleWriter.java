@@ -129,17 +129,6 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         this.shuffleBlockResolver = shuffleBlockResolver;
     }
 
-    public int equal(int index, java.util.List<ByteBuf> list) {
-        int num = -1;
-        int i = 0;
-        for (ByteBuf ele: list) {
-            if (index == ele.writerIndex()) {
-                return i;
-            }
-            i++;
-        }
-        return num;
-    }
     @Override
     public void write(Iterator<Product2<K, V>> records) throws IOException {
         assert (partitionWriters == null);
@@ -149,6 +138,7 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
             return;
         }
+
         final SerializerInstance serInstance = serializer.newInstance();
 
         final long openStartTime = System.nanoTime();
@@ -171,7 +161,7 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             writer.commitAndClose();
         }
         partitionLengths = createNVMBufferlength();
-        // shuffleBlockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, tmp);
+        // shuffleBlockResolver.writeNVMBufferAndCommit(shuffleId, mapId, partitionLengths);
         mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
     }
 
@@ -224,13 +214,13 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
                         for (NVMBufferObjectWriter writer : partitionWriters) {
                             // This method explicitly does _not_ throw exceptions:
                             writer.cleararraylist();
-                            System.out.println(" write size@panda " + writer.arraylist().size());
+                            // System.out.println(" write size@panda " + writer.arraylist().size());
                         }
                     } finally {
                         partitionWriters = null;
                     }
                 }
-                shuffleBlockResolver.removeDataByMap(shuffleId, mapId);
+                shuffleBlockResolver.removeDataByMap(shuffleId, mapId, numPartitions);
                 return None$.empty();
             }
         }

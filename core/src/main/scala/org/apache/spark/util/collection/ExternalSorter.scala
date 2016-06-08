@@ -198,7 +198,6 @@ private[spark] class ExternalSorter[K, V, C](
         addElementsRead()
         val kv = records.next()
         buffer.insert(getPartition(kv._1), kv._1, kv._2.asInstanceOf[C])
-        System.out.println(kv._1)
         maybeSpillCollection(usingMap = false)
       }
     }

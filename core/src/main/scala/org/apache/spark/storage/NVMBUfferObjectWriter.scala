@@ -53,6 +53,7 @@ private[spark] class NVMBufferObjectWriter(
   private val bytebufSize = blockManager.getgranularity()
   private val maxcapacity = blockManager.getmaxcapacity()
   private val autoscaling = blockManager.getautoscaling()
+  private val minspaceleft = blockManager.getminspaceleft()
   val arraylist = new util.ArrayList[ByteBuf]()
 
   /**
@@ -81,8 +82,10 @@ private[spark] class NVMBufferObjectWriter(
 
   def open(): NVMBufferObjectWriter = {
     val serbytebuf = if (autoscaling)
+                        // the max size is 4G
                         new ByteBufOutputStream(Unpooled.directBuffer(bytebufSize))
                      else
+                        // the max size is maxcapacity
                         new ByteBufOutputStream(Unpooled.directBuffer(bytebufSize, maxcapacity))
     bs = compressStream(serbytebuf)
     objOut = serializerInstance.serializeStream(bs)
@@ -156,9 +159,12 @@ private[spark] class NVMBufferObjectWriter(
     }
     objOut.writeKey(key)
     objOut.writeValue(value)
+    /*
+    Todo: better algorithm to allocate bytebuf
+    * */
     if (!autoscaling) {
       val index = arraylist.size()
-      if (arraylist.get(index -1).writableBytes() < 32) {
+      if (arraylist.get(index -1).writableBytes() < minspaceleft) {
         objOut.flush()
         bs.flush()
         close()
