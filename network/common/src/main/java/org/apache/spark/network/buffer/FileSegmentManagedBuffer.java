@@ -100,7 +100,7 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public InputStream createInputStream() throws IOException {
-    System.out.println("FileSegmentManagedBuffer createInputStream@panda");
+    // System.out.println("FileSegmentManagedBuffer createInputStream@panda");
     FileInputStream is = null;
     try {
       is = new FileInputStream(file);

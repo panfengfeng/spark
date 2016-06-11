@@ -83,10 +83,12 @@ private[spark] class BlockManager(
   // 2. ConcurrentHashMap[mapID, hashmap[reduceID, ArrayList[ByteBuf]]]
   // val nvmbufferManager = new ConcurrentHashMap[Int, mutable.HashMap[Int, ArrayBuffer[ByteBuf]]]();
   val nvmbufferManager = new ConcurrentHashMap[String, ArrayList[ByteBuf]]()
+
   private val granularity = conf.getInt("spark.nvmbuffer.granularity", 128)
   private val maxcapacity = conf.getInt("spark.nvmbuffer.maxcapacity", 128)
+  private val minspaceleft = conf.getInt("spark.nvmbuffer.minspaceleft", 8)
   private val autoscaling = conf.getBoolean("spark.nvmbuffer.autoscaling", false)
-  private val minspaceleft = conf.getInt("spark.nvmbuffer.minspaceleft", 32)
+
   System.out.println("blockManager granularity, maxcapacity, minspaceleft@panda " + granularity + " " + maxcapacity + " " + minspaceleft)
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
 

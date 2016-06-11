@@ -67,9 +67,10 @@ private[spark] class BlockStoreShuffleReader[K, C](
           val list = {
             (bytebuf.asInstanceOf[CompositeByteBuf]).decompose(0, bytebuf.readableBytes())
           }
-          System.out.println("list size@panda " + list.size())
+          System.out.println("compositeinstream list size@panda " + list.size())
           serializerInstance.deserializeStream(compositeinstream).asNVMBufferKeyValueIterator(compositeinstream.getinputstream().asInstanceOf[ByteBufInputStream], bytebuf, list)
         case othersinstream: BufferReleasingInputStream =>
+          System.out.println("othersinstream")
           serializerInstance.deserializeStream(othersinstream).asKeyValueIterator
       }
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a

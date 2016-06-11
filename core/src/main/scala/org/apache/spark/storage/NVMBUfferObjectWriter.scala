@@ -158,13 +158,25 @@ private[spark] class NVMBufferObjectWriter(
       open()
     }
     objOut.writeKey(key)
+    if (!autoscaling) {
+      val index = arraylist.size()
+      if (!arraylist.get(index -1).isWritable(minspaceleft)) {
+        objOut.flush()
+        bs.flush()
+        close()
+      }
+    }
+
+    if (!initialized) {
+      open()
+    }
     objOut.writeValue(value)
     /*
     Todo: better algorithm to allocate bytebuf
     * */
     if (!autoscaling) {
       val index = arraylist.size()
-      if (arraylist.get(index -1).writableBytes() < minspaceleft) {
+      if (!arraylist.get(index -1).isWritable(minspaceleft)) {
         objOut.flush()
         bs.flush()
         close()
