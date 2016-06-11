@@ -25,7 +25,6 @@ import java.io.SequenceInputStream;
 import java.util.Enumeration;
 import java.util.Vector;
 
-import com.sun.tools.doclets.internal.toolkit.util.DocFinder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.CompositeByteBuf;
@@ -109,6 +108,21 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
      */
     private boolean stopping = false;
 
+    public int equal(int index, java.util.List<ByteBuf> list) {
+        int i = 0;
+        int total = 0;
+        int size = list.size() - 1;
+        for (ByteBuf ele: list) {
+            total += ele.writerIndex();
+            if (index == total && i != size) {
+                System.out.println("index " + index + " ele.writerIndex() " + ele.writerIndex() + " total " + total);
+                return 0;
+            }
+            i++;
+        }
+        return -1;
+    }
+
     public NVMBufferShuffleWriter(
             BlockManager blockManager,
             NVMBufferShuffleBlockResolver shuffleBlockResolver,
@@ -156,6 +170,50 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             final K key = record._1();
             partitionWriters[partitioner.getPartition(key)].write(key, record._2());
         }
+        /*
+        for (int i = 0; i < numPartitions; i++) {
+            int size = partitionWriters[i].arraylist().size();
+            System.out.println("partitionWriters[i].arraylist().size@panda " + size);
+            ByteBuf bytebufs = Unpooled.wrappedBuffer(size + 1, partitionWriters[i].arraylist().toArray(new ByteBuf[0]));
+            if (bytebufs instanceof CompositeByteBuf) {
+                System.out.println("CompositeByteBuf@panda");
+                java.util.List<ByteBuf> list = ((CompositeByteBuf) bytebufs).decompose(0, bytebufs.readableBytes());
+                for (int j = 0; j < list.size(); j++) {
+                    System.out.println(" rindx@panda " + list.get(j).readerIndex() + " windx@panda " + list.get(j).writerIndex());
+                }
+                ByteBufInputStream deserbytebuf = new ByteBufInputStream(bytebufs);
+                DeserializationStream objIn = serInstance.deserializeStream(deserbytebuf);
+                Iterator<Tuple2<Object, Object>> kviter = objIn.asKeyValueIterator();
+                System.out.println("rindx@panda before while " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                while (kviter.hasNext()) {
+                    System.out.println("rindx@panda before next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                    final Tuple2<Object, Object> kv = kviter.next();
+                    System.out.println("rindx@panda after next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                    final K k = (K) kv._1();
+                    final V v = (V) kv._2();
+                    System.out.println("k@panda " + k);
+                    if(equal(bytebufs.readerIndex(), list) >= 0) {
+                        deserbytebuf.readInt();
+                    }
+                }
+                System.out.println("read done!");
+            } else {
+                System.out.println("ByteBuf@panda");
+                ByteBufInputStream deserbytebuf = new ByteBufInputStream(bytebufs);
+                DeserializationStream objIn = serInstance.deserializeStream(deserbytebuf);
+                Iterator<Tuple2<Object, Object>> kviter = objIn.asKeyValueIterator();
+                System.out.println("rindx@panda before while " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                while (kviter.hasNext()) {
+                    System.out.println("rindx@panda before next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                    final Tuple2<Object, Object> kv = kviter.next();
+                    System.out.println("rindx@panda after next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                    final K k = (K) kv._1();
+                    final V v = (V) kv._2();
+                }
+                System.out.println("read done!");
+            }
+        }
+        */
 
         for (NVMBufferObjectWriter writer : partitionWriters) {
             writer.commitAndClose();

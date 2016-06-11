@@ -194,16 +194,19 @@ abstract class DeserializationStream {
     }
   }
 
+
   def equal(index: Int, list: java.util.List[ByteBuf]): Int = {
-    val num: Int = -1
     var i: Int = 0
+    var total: Int = 0
+    val size: Int = list.size() - 1
     for (ele <- list) {
-      if (index == ele.writerIndex) {
-        return i
+      total += ele.writerIndex()
+      if (index == total && i != size) {
+        return 0
       }
       i += 1
     }
-    num
+    -1
   }
   /**
    * Read the elements of this stream through an iterator over key-value pairs. This can only be
@@ -230,6 +233,7 @@ abstract class DeserializationStream {
                                   bytebuf: ByteBuf,
                                   list: java.util.List[ByteBuf]): Iterator[(Any, Any)] = new NextIterator[(Any, Any)] {
     override protected def getNext() = try {
+ //     System.out.println("asNVMBufferKeyValueIterator")
       val kvpair = (readKey[Any](), readValue[Any]())
       if (bytebuf.isInstanceOf[CompositeByteBuf]) {
         val readindex: Int = bytebuf.readerIndex
