@@ -24,7 +24,7 @@ import io.netty.buffer.Unpooled
 import io.netty.buffer._
 
 import org.apache.spark.Logging
-import org.apache.spark.serializer.{SerializerInstance, SerializationStream}
+import org.apache.spark.serializer.{KryoSerializationStream, SerializerInstance, SerializationStream}
 import org.apache.spark.executor.ShuffleWriteMetrics
 
 /**
@@ -54,6 +54,7 @@ private[spark] class NVMBufferObjectWriter(
   private val maxcapacity = blockManager.getmaxcapacity()
   private val autoscaling = blockManager.getautoscaling()
   private val minspaceleft = blockManager.getminspaceleft()
+  private var total = 0
   val arraylist = new util.ArrayList[ByteBuf]()
 
   /**
@@ -112,7 +113,7 @@ private[spark] class NVMBufferObjectWriter(
     if (initialized) {
       // NOTE: Because Kryo doesn't flush the underlying stream we explicitly flush both the
       //       serializer stream and the lower level stream.
-      objOut.flush()
+      objOut.flush() // flush 引发 bytebuf ensure bug
       bs.flush()
       close()
       // finalPosition = 0
@@ -141,42 +142,111 @@ private[spark] class NVMBufferObjectWriter(
      arraylist.clear()
     }
   }
-  /**
-   * Writes a key-value pair.
-    assert(arraylist.size() > 0)
-    val index = arraylist.size()
-    System.out.println("NVMBufferObjectWriter index " + index)
-    if (!arraylist.get(index-1).isWritable(256)) {
-      System.out.println("not enough space@panda")
-      objOut.flush()
-      bs.flush()
-      close()
-    }
+
+  /*
+  Todo: more efficiency write method
    */
-  def write(key: Any, value: Any) {
+  def writekryonvmbuffer(key: Any, value: Any): Unit = {
     if (!initialized) {
-      open()
+        open()
     }
-    objOut.writeKey(key)
-    if (!autoscaling) {
-      val index = arraylist.size()
-      if (!arraylist.get(index -1).isWritable(minspaceleft)) {
+
+    if (autoscaling) {
+      objOut.writeKey(key)
+      objOut.writeValue(value)
+    } else {
+
+      objOut.writeKey(key)
+      System.out.println("write key windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+      objOut.writeValue(value)
+      System.out.println("write value windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+
+      if (arraylist.get(arraylist.size()-1).maxCapacity() > objOut.total  && objOut.total > minspaceleft) {
+        System.out.println("not enough space, before flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+        objOut.flush()
+        bs.flush()
+        System.out.println("not enough space, after flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+        close()
+      }
+    }
+  }
+
+  def writeusenvmbuffer(key: Any, value: Any): Unit = {
+    if (autoscaling) {
+      if (!initialized) {
+        open()
+      }
+      objOut.writeKey(key)
+      objOut.writeValue(value)
+
+    } else {
+
+      if (!initialized) {
+        open()
+      }
+      System.out.println("blockid " + blockId.toString + " beforekey maxcapacity " + arraylist.get(arraylist.size()-1).maxCapacity() + " windx " + arraylist.get(arraylist.size()-1).writerIndex() + " total " + objOut.total)
+      if ((arraylist.get(arraylist.size()-1).maxCapacity() - objOut.total) <= minspaceleft) {
+        System.out.println("not enough space and will open a new bytebuf")
         objOut.flush()
         bs.flush()
         close()
       }
-    }
 
-    if (!initialized) {
-      open()
-    }
-    objOut.writeValue(value)
-    /*
-    Todo: better algorithm to allocate bytebuf
-    * */
-    if (!autoscaling) {
-      val index = arraylist.size()
-      if (!arraylist.get(index -1).isWritable(minspaceleft)) {
+      if (!initialized) {
+        open()
+      }
+
+      var beforekey = objOut.position
+      try {
+        objOut.writeKey(key)
+        System.out.println("blockid " + blockId.toString + " beforekey " + beforekey + " afterkey " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          System.out.println("exception blockid " + blockId.toString + " beforekey " + beforekey + " afterkey " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+          objOut.setPosition(beforekey)
+          objOut.flush()
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeKey(key)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+
+      System.out.println("blockid " + blockId.toString + "afterkey&beforevalue maxcapacity " + arraylist.get(arraylist.size()-1).maxCapacity() + " windx " + arraylist.get(arraylist.size()-1).writerIndex() + " total " + objOut.total)
+      if ((arraylist.get(arraylist.size()-1).maxCapacity() - objOut.total) <= minspaceleft) {
+        System.out.println("not enough space and will open a new bytebuf")
+        objOut.flush()
+        bs.flush()
+        close()
+      }
+
+      if (!initialized) {
+        open()
+      }
+
+      var beforevalue = objOut.position
+      try {
+        objOut.writeValue(value)
+        System.out.println("blockid " + blockId.toString + " beforevalue " + beforekey + " aftervalue " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          System.out.println("exception blockid " + blockId.toString + " beforevalue " + beforekey + " aftervalue " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+          objOut.setPosition(beforevalue)
+          objOut.flush()
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeValue(value)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+
+      System.out.println("blockid " + blockId.toString + " aftervalue maxcapacity " + arraylist.get(arraylist.size()-1).maxCapacity() + " windx " + arraylist.get(arraylist.size()-1).writerIndex() + " total " + objOut.total)
+      if ((arraylist.get(arraylist.size()-1).maxCapacity() - objOut.total) <= minspaceleft) {
+        System.out.println("not enough space and will open a new bytebuf")
         objOut.flush()
         bs.flush()
         close()
@@ -184,9 +254,153 @@ private[spark] class NVMBufferObjectWriter(
     }
   }
 
+  def writebetternvmbuffer(key: Any, value: Any): Unit = {
+    if (autoscaling) {
+      if (!initialized) {
+        open()
+      }
+      objOut.writeKey(key)
+      objOut.writeValue(value)
+    } else {
+      if (!initialized) {
+        open()
+      }
+      var beforekey = objOut.position
+      try {
+        objOut.writeKey(key)
+        System.out.println("blockid " + blockId.toString + " beforekey " + beforekey + " afterkey " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          System.out.println("exception blockid " + blockId.toString + " beforekey " + beforekey + " afterkey " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+          objOut.setPosition(beforekey)
+          objOut.flush()
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeKey(key)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+
+      var beforevalue = objOut.position
+      try {
+        objOut.writeValue(value)
+        System.out.println("blockid " + blockId.toString + " beforevalue " + beforekey + " aftervalue " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          System.out.println("exception blockid " + blockId.toString + " beforevalue " + beforekey + " aftervalue " + objOut.position + " total " + objOut.total + " bytebuf windx " + arraylist.get(arraylist.size()-1).writerIndex())
+          objOut.setPosition(beforevalue)
+          objOut.flush()
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeValue(value)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+    }
+  }
+
+  def writenewnvmbuffer(key: Any, value: Any): Unit = {
+    if (autoscaling) {
+      if (!initialized) {
+        open()
+      }
+      objOut.writeKey(key)
+      objOut.writeValue(value)
+    } else {
+      if (!initialized) {
+        open()
+      }
+      try {
+        objOut.writeKey(key)
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          // objOut.clear() // clear的使用会导致之前已经正确写入到buf中的数据清空
+          objOut.flush()  // flush 引发 bug
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeKey(key)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+
+      try {
+        objOut.writeValue(value)
+      } catch {
+        case e: java.lang.IndexOutOfBoundsException =>
+          // objOut.clear()
+          objOut.flush()   // flush 引发 bug
+          bs.flush()
+          close()
+          if (!initialized) {
+            open()
+          }
+          objOut.writeValue(value)
+        case unknown => println("Unknown exception " + unknown); System.exit(-1)
+      }
+    }
+  }
+
+  def writejavanvmbuffer(key: Any, value: Any): Unit = {
+      if(autoscaling) {
+        if (!initialized) {
+          open()
+        }
+        objOut.writeKey(key)
+        objOut.writeValue(value)
+      } else {
+        if (!initialized) {
+          open()
+        }
+
+        if (arraylist.get(arraylist.size()-1).writableBytes() < minspaceleft) {
+          objOut.flush()
+          bs.flush()
+          close()
+        }
+
+        if (!initialized) {
+          open()
+        }
+
+        objOut.writeKey(key)
+
+        if (arraylist.get(arraylist.size()-1).writableBytes() < minspaceleft) {
+          objOut.flush()
+          bs.flush()
+          close()
+        }
+
+        if (!initialized) {
+          open()
+        }
+
+        objOut.writeValue(value)
+        if (arraylist.get(arraylist.size()-1).writableBytes() < minspaceleft) {
+          objOut.flush()
+          bs.flush()
+          close()
+        }
+      }
+  }
+
+  def write(key: Any, value: Any) {
+    if (!initialized) {
+      open()
+    }
+    objOut.writeKey(key)
+    objOut.writeValue(value)
+  }
+
   override def write(b: Int): Unit = throw new UnsupportedOperationException()
 
   override def write(kvBytes: Array[Byte], offs: Int, len: Int): Unit = {
+    System.out.println("write array@panda")
     if (!initialized) {
       open()
     }

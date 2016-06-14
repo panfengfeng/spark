@@ -87,6 +87,24 @@ private class UnsafeRowSerializerInstance(numFields: Int) extends SerializerInst
       writeBuffer = null
       dOut.close()
     }
+
+    override def clear(): Unit = {
+
+    }
+
+    /** Returns the current position in the buffer. This is the number of bytes that have not been flushed. */
+    override def position: Int = {
+      0
+    }
+
+    /** Sets the current position in the buffer. */
+    override def setPosition(position: Int) = {
+    }
+
+    /** Returns the total number of bytes written. This may include bytes that have not been flushed. */
+    override def total: Int = {
+      0
+    }
   }
 
   override def deserializeStream(in: InputStream): DeserializationStream = {

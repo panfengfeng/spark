@@ -77,6 +77,10 @@ class KryoSerializer(conf: SparkConf)
 
   private val avroSchemas = conf.getAvroSchema
 
+  def getconf(): SparkConf = {
+    conf
+  }
+
   def newKryoOutput(): KryoOutput = new KryoOutput(bufferSize, math.max(bufferSize, maxBufferSize))
 
   def newKryo(): Kryo = {
@@ -187,7 +191,15 @@ class KryoSerializationStream(
     serInstance: KryoSerializerInstance,
     outStream: OutputStream) extends SerializationStream {
 
-  private[this] var output: KryoOutput = new KryoOutput(outStream)
+  private[this] var output: KryoOutput = if (serInstance.getconf().getBoolean("spark.shuffle.nvmbuffer.supported", true)) {
+    val size = serInstance.getconf().getInt("spark.nvmbuffer.serializerbuffer", 128)
+    System.out.println("kryo buffer size@panda " + size)
+    new KryoOutput(outStream, size)
+  } else {
+    System.out.println("kryo buffer size@panda 4096")
+    new KryoOutput(outStream)
+  }
+
   private[this] var kryo: Kryo = serInstance.borrowKryo()
 
   override def writeObject[T: ClassTag](t: T): SerializationStream = {
@@ -195,11 +207,34 @@ class KryoSerializationStream(
     this
   }
 
+  def getoutput(): KryoOutput = {
+    output
+  }
+
   override def flush() {
     if (output == null) {
       throw new IOException("Stream is closed")
     }
     output.flush()
+  }
+
+  override def clear(): Unit = {
+    output.clear()
+  }
+
+  /** Returns the current position in the buffer. This is the number of bytes that have not been flushed. */
+  def position: Int = {
+    return output.position()
+  }
+
+  /** Sets the current position in the buffer. */
+  def setPosition(position: Int): Unit = {
+    output.setPosition(position)
+  }
+
+  /** Returns the total number of bytes written. This may include bytes that have not been flushed. */
+  def total: Int = {
+    return output.total()
   }
 
   override def close() {
@@ -257,6 +292,10 @@ private[spark] class KryoSerializerInstance(ks: KryoSerializer) extends Serializ
    */
   @Nullable private[this] var cachedKryo: Kryo = borrowKryo()
 
+
+  def getconf(): SparkConf = {
+    ks.getconf()
+  }
   /**
    * Borrows a [[Kryo]] instance. If possible, this tries to re-use a cached Kryo instance;
    * otherwise, it allocates a new instance.

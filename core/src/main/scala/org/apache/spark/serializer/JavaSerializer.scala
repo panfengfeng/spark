@@ -56,6 +56,22 @@ private[spark] class JavaSerializationStream(
 
   def flush() { objOut.flush() }
   def close() { objOut.close() }
+
+  def clear() {}
+
+  /** Returns the current position in the buffer. This is the number of bytes that have not been flushed. */
+  def position: Int = {
+    0
+  }
+
+  /** Sets the current position in the buffer. */
+  def setPosition(position: Int): Unit = {
+  }
+
+  /** Returns the total number of bytes written. This may include bytes that have not been flushed. */
+  def total: Int = {
+    0
+  }
 }
 
 private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoader)

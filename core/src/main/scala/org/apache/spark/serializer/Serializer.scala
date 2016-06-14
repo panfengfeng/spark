@@ -151,6 +151,14 @@ abstract class SerializationStream {
   def flush(): Unit
   def close(): Unit
 
+  def clear(): Unit
+
+  def position: Int
+
+  def setPosition(position: Int): Unit
+
+  def total: Int
+
   def writeAll[T: ClassTag](iter: Iterator[T]): SerializationStream = {
     while (iter.hasNext) {
       writeObject(iter.next())
@@ -234,8 +242,8 @@ abstract class DeserializationStream {
                                   list: java.util.List[ByteBuf]): Iterator[(Any, Any)] = new NextIterator[(Any, Any)] {
     override protected def getNext() = try {
  //     System.out.println("asNVMBufferKeyValueIterator")
-      val readk = readKey[Any]()
- //     val kvpair = (readKey[Any](), readValue[Any]())
+ //       val readk = readKey[Any]()
+   val kvpair = (readKey[Any](), readValue[Any]())
       if (bytebuf.isInstanceOf[CompositeByteBuf]) {
         val readindex: Int = bytebuf.readerIndex
         val result: Int = equal(readindex, list)
@@ -243,6 +251,8 @@ abstract class DeserializationStream {
           bytebufinstream.readInt()
         }
       }
+      kvpair
+   /*
       val readv = readValue[Any]()
       if (bytebuf.isInstanceOf[CompositeByteBuf]) {
         val readindex: Int = bytebuf.readerIndex
@@ -252,6 +262,7 @@ abstract class DeserializationStream {
         }
       }
       (readk, readv)
+      */
     } catch {
       case eof: EOFException => {
         finished = true

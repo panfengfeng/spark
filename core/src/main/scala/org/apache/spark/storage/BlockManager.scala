@@ -86,7 +86,7 @@ private[spark] class BlockManager(
 
   private val granularity = conf.getInt("spark.nvmbuffer.granularity", 128)
   private val maxcapacity = conf.getInt("spark.nvmbuffer.maxcapacity", 128)
-  private val minspaceleft = conf.getInt("spark.nvmbuffer.minspaceleft", 8)
+  private val minspaceleft = conf.getInt("spark.nvmbuffer.minspaceleft", 100)
   private val autoscaling = conf.getBoolean("spark.nvmbuffer.autoscaling", false)
 
   System.out.println("blockManager granularity, maxcapacity, minspaceleft@panda " + granularity + " " + maxcapacity + " " + minspaceleft)

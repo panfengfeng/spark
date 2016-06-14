@@ -30,6 +30,7 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.spark.serializer.DeserializationStream;
+import org.apache.spark.util.SystemClock;
 import scala.collection.JavaConverters.*;
 import org.apache.spark.shuffle.NVMBufferShuffleBlockResolver;
 import scala.None$;
@@ -109,6 +110,7 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     private boolean stopping = false;
 
     public int equal(int index, java.util.List<ByteBuf> list) {
+        System.out.println("index " + index);
         int i = 0;
         int total = 0;
         int size = list.size() - 1;
@@ -165,12 +167,32 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         // the disk, and can take a long time in aggregate when we open many files, so should be
         // included in the shuffle write time.
         writeMetrics.incShuffleWriteTime(System.nanoTime() - openStartTime);
+        System.out.println("mapid write@panda " + mapId);
         while (records.hasNext()) {
             final Product2<K, V> record = records.next();
             final K key = record._1();
-            partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+            // partitionWriters[partitioner.getPartition(key)].write(key, record._2());
+            // partitionWriters[partitioner.getPartition(key)].writenvmbuffer(key, record._2());
+            // partitionWriters[partitioner.getPartition(key)].writebetternvmbuffer(key, record._2());
+            // partitionWriters[partitioner.getPartition(key)].writeusenvmbuffer(key, record._2());
+            partitionWriters[partitioner.getPartition(key)].writekryonvmbuffer(key, record._2());
+            // partitionWriters[partitioner.getPartition(key)].writejavanvmbuffer(key, record._2());
+        }
+        System.out.println("write done");
+
+        int totalwindx = 0;
+        int totalcapacity = 0;
+        for (int i = 0; i < numPartitions; i++) {
+            int size = partitionWriters[i].arraylist().size();
+            System.out.println("mapid " + mapId + " partiiton " + i + " size " + size);
+            for (int j = 0; j < size; j++) {
+                totalwindx += partitionWriters[i].arraylist().get(j).writerIndex();
+                totalcapacity += partitionWriters[i].arraylist().get(j).capacity();
+            }
         }
         /*
+        System.out.println("map@panda " + mapId + " windx " + totalwindx + " capacity " + totalcapacity);
+
         for (int i = 0; i < numPartitions; i++) {
             int size = partitionWriters[i].arraylist().size();
             System.out.println("partitionWriters[i].arraylist().size@panda " + size);
@@ -183,16 +205,16 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
                 }
                 ByteBufInputStream deserbytebuf = new ByteBufInputStream(bytebufs);
                 DeserializationStream objIn = serInstance.deserializeStream(deserbytebuf);
-                Iterator<Tuple2<Object, Object>> kviter = objIn.asKeyValueIterator();
+                // Iterator<Tuple2<Object, Object>> kviter = objIn.asKeyValueIterator();
+                Iterator<Tuple2<Object, Object>> kviter = objIn.asNVMBufferKeyValueIterator(deserbytebuf, bytebufs, list);
                 System.out.println("rindx@panda before while " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
                 while (kviter.hasNext()) {
-                    System.out.println("rindx@panda before next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
                     final Tuple2<Object, Object> kv = kviter.next();
-                    System.out.println("rindx@panda after next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
+                    System.out.println("rindx@panda next() " + bytebufs.readerIndex() + " windx " + bytebufs.writerIndex());
                     final K k = (K) kv._1();
-                    final V v = (V) kv._2();
                     System.out.println("k@panda " + k);
                     if(equal(bytebufs.readerIndex(), list) >= 0) {
+                        System.out.println("skip int");
                         deserbytebuf.readInt();
                     }
                 }
@@ -214,7 +236,6 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             }
         }
         */
-
         for (NVMBufferObjectWriter writer : partitionWriters) {
             writer.commitAndClose();
         }

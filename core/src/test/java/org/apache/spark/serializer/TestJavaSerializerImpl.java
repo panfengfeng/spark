@@ -78,6 +78,27 @@ class TestJavaSerializerImpl extends Serializer {
     public void close() {
 
     }
+
+    @Override
+    public void clear() {
+
+    }
+
+      @Override
+      public int position() {
+           return 0;
+      }
+
+      @Override
+      public void setPosition(int position) {
+
+      }
+
+      @Override
+      public int total() {
+        return 0;
+      }
+
   }
 
   static class DeserializationStreamImpl extends DeserializationStream {

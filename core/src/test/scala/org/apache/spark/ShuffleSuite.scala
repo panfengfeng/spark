@@ -39,8 +39,10 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
   conf.set("spark.test.noStageRetry", "true")
 
   test("sort by key") {
-    val myConf = conf.clone().set("spark.shuffle.compress", "false")
-    // val myConf = conf.clone().set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+   //  val myConf = conf.clone().set("spark.shuffle.compress", "false")
+    val myConf = {
+      conf.clone().set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    }
     sc = new SparkContext("local[1]", "test", myConf)
     val data = sc.parallelize(Seq("5|50|A","4|60|C", "6|40|B","2|50|D","1|30|C",
                                   "3|70|A","7|50|A","8|50|F","9|50|Z","10|50|A",
@@ -48,6 +50,8 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
                                   "20|50|A","16|50|A","17|50|A","19|50|A","18|60|B",
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
                                   "30|50|A","26|50|A","28|50|A","29|50|A","27|60|B",
+                                  "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B"))
+    /*
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
@@ -58,11 +62,13 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B",
                                   "21|50|A","25|50|A","23|50|A","24|50|A","22|60|B"))
+                                  */
     data.sortBy(_.split("\\|")(0), true).collect()
   }
 
   ignore("groupByKey without compression") {
-    val myConf = conf.clone().set("spark.shuffle.compress", "false")
+    //val myConf = conf.clone().set("spark.shuffle.compress", "false")
+    val myConf = conf.clone().set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     sc = new SparkContext("local[1]", "test", myConf)
     val pairs = sc.parallelize(Array((1, 1), (1, 2), (1, 3), (2, 1), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10)), 1)
     val groups = pairs.groupByKey(1).collect()
