@@ -566,12 +566,15 @@ private[deploy] class Worker(
 
   private def maybeCleanupApplication(id: String): Unit = {
     val shouldCleanup = finishedApps.contains(id) && !executors.values.exists(_.appId == id)
+    val result = conf.getBoolean("spark.shuffle.deleteshuffledata", true)
     if (shouldCleanup) {
       finishedApps -= id
-      appDirectories.remove(id).foreach { dirList =>
-        logInfo(s"Cleaning up local directories for application $id")
-        dirList.foreach { dir =>
-          Utils.deleteRecursively(new File(dir))
+      if (result) {
+        appDirectories.remove(id).foreach { dirList =>
+          logInfo(s"Cleaning up local directories for application $id")
+          dirList.foreach { dir =>
+            Utils.deleteRecursively(new File(dir))
+          }
         }
       }
       shuffleService.applicationRemoved(id)
