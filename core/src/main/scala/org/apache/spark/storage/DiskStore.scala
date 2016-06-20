@@ -145,6 +145,7 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
   }
 
   override def remove(blockId: BlockId): Boolean = {
+    System.out.println("remove block@panda " + blockId.toString)
     val file = diskManager.getFile(blockId.name)
     if (file.exists()) {
       val ret = file.delete()

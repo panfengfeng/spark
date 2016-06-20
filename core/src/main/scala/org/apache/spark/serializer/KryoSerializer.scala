@@ -193,10 +193,10 @@ class KryoSerializationStream(
 
   private[this] var output: KryoOutput = if (serInstance.getconf().getBoolean("spark.shuffle.nvmbuffer.supported", true)) {
     val size = serInstance.getconf().getInt("spark.nvmbuffer.serializerbuffer", 128)
-    System.out.println("kryo buffer size@panda " + size)
+   // System.out.println("kryose buffer size@panda " + size)
     new KryoOutput(outStream, size)
   } else {
-    System.out.println("kryo buffer size@panda 4096")
+   // System.out.println("kryose buffer size@panda 4096")
     new KryoOutput(outStream)
   }
 
@@ -255,7 +255,15 @@ class KryoDeserializationStream(
     serInstance: KryoSerializerInstance,
     inStream: InputStream) extends DeserializationStream {
 
-  private[this] var input: KryoInput = new KryoInput(inStream)
+  private[this] var input: KryoInput = if (serInstance.getconf().getBoolean("spark.shuffle.nvmbuffer.supported", true)) {
+    val size = serInstance.getconf().getInt("spark.nvmbuffer.deserializerbuffer", 128)
+    System.out.println("kryode buffer size@panda " + size)
+    new KryoInput(inStream, size)
+  } else {
+    System.out.println("kryode buffer size@panda 4096")
+    new KryoInput(inStream)
+  }
+
   private[this] var kryo: Kryo = serInstance.borrowKryo()
 
   override def readObject[T: ClassTag](): T = {

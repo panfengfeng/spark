@@ -1163,6 +1163,7 @@ private[spark] class BlockManager(
    */
   def removeBlock(blockId: BlockId, tellMaster: Boolean = true): Unit = {
     logDebug(s"Removing block $blockId")
+    System.out.println("Removing block " + blockId.toString)
     val info = blockInfo.get(blockId).orNull
     if (info != null && pendingToRemove.putIfAbsent(blockId, currentTaskAttemptId) == 0L) {
       try {

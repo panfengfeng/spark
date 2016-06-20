@@ -157,15 +157,15 @@ private[spark] class NVMBufferObjectWriter(
     } else {
 
       objOut.writeKey(key)
-      System.out.println("write key windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+      // System.out.println("blockid " + blockId.toString + " write key windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
       objOut.writeValue(value)
-      System.out.println("write value windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+      // System.out.println("blockid " + blockId.toString + " write value windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
 
       if (arraylist.get(arraylist.size()-1).maxCapacity() > objOut.total  && objOut.total > minspaceleft) {
-        System.out.println("not enough space, before flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+        // System.out.println("blockid " + blockId.toString + " not enough space, before flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
         objOut.flush()
         bs.flush()
-        System.out.println("not enough space, after flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
+        // System.out.println("blockid " + blockId.toString + " not enough space, after flush, windx " + arraylist.get(arraylist.size()-1).writerIndex() + " buffer size " + objOut.total + " position " + objOut.position)
         close()
       }
     }

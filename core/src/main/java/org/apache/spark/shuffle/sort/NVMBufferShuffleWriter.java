@@ -167,7 +167,7 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         // the disk, and can take a long time in aggregate when we open many files, so should be
         // included in the shuffle write time.
         writeMetrics.incShuffleWriteTime(System.nanoTime() - openStartTime);
-        System.out.println("mapid write@panda " + mapId);
+        // System.out.println("mapid write@panda " + mapId);
         while (records.hasNext()) {
             final Product2<K, V> record = records.next();
             final K key = record._1();
@@ -178,6 +178,7 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             partitionWriters[partitioner.getPartition(key)].writekryonvmbuffer(key, record._2());
             // partitionWriters[partitioner.getPartition(key)].writejavanvmbuffer(key, record._2());
         }
+        /*
         System.out.println("write done");
 
         int totalwindx = 0;
@@ -190,7 +191,6 @@ final class NVMBufferShuffleWriter<K, V> extends ShuffleWriter<K, V> {
                 totalcapacity += partitionWriters[i].arraylist().get(j).capacity();
             }
         }
-        /*
         System.out.println("map@panda " + mapId + " windx " + totalwindx + " capacity " + totalcapacity);
 
         for (int i = 0; i < numPartitions; i++) {
