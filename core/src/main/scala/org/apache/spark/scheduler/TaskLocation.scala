@@ -42,6 +42,10 @@ private [spark] case class HostTaskLocation(override val host: String) extends T
   override def toString: String = host
 }
 
+private [spark] case class HostTaskSSDLocation(override val host: String) extends TaskLocation {
+  override def toString: String = host
+}
+
 /**
  * A location on a host that is cached by HDFS.
  */
@@ -54,6 +58,10 @@ private[spark] object TaskLocation {
   // underscores, which are not legal characters in hostnames, there should be no potential for
   // confusion.  See  RFC 952 and RFC 1123 for information about the format of hostnames.
   val inMemoryLocationTag = "hdfs_cache_"
+
+  val inSSDLocationTag = "SSD"
+
+  val inDiskLocationTag = "DISK"
 
   // Identify locations of executors with this prefix.
   val executorLocationTag = "executor_"
@@ -77,7 +85,13 @@ private[spark] object TaskLocation {
         val Array(host, executorId) = splits
         new ExecutorCacheTaskLocation(host, executorId)
       } else {
-        new HostTaskLocation(str)
+        val tstr = str.stripPrefix(inSSDLocationTag)
+        if (tstr.equals(hstr)) {
+          val ttstr = tstr.stripPrefix(inDiskLocationTag)
+          new HostTaskLocation(ttstr)
+        } else {
+          new HostTaskSSDLocation(tstr)
+        }
       }
     } else {
       new HDFSCacheTaskLocation(hstr)

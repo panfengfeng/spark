@@ -17,6 +17,8 @@
 
 package org.apache.spark.rdd
 
+import java.net._
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.io.EOFException
@@ -396,6 +398,8 @@ private[spark] object HadoopRDD extends Logging {
     val splitLocationInfo = Utils.classForName("org.apache.hadoop.mapred.SplitLocationInfo")
     val isInMemory = splitLocationInfo.getMethod("isInMemory")
     val getLocation = splitLocationInfo.getMethod("getLocation")
+
+    val getStorageType = splitLocationInfo.getMethod("getStorageType")
   }
 
   private[spark] val SPLIT_INFO_REFLECTIONS: Option[SplitInfoReflections] = try {
@@ -412,13 +416,23 @@ private[spark] object HadoopRDD extends Logging {
     infos.foreach { loc => {
       val locationStr = HadoopRDD.SPLIT_INFO_REFLECTIONS.get.
         getLocation.invoke(loc).asInstanceOf[String]
+
+      val storagetypeStr = HadoopRDD.SPLIT_INFO_REFLECTIONS.get.
+        getStorageType.invoke(loc).asInstanceOf[String]
+
       if (locationStr != "localhost") {
+        val address = java.net.InetAddress.getByName(locationStr)
+        val ipStr = address.getHostAddress()
+
         if (HadoopRDD.SPLIT_INFO_REFLECTIONS.get.isInMemory.
                 invoke(loc).asInstanceOf[Boolean]) {
           logDebug("Partition " + locationStr + " is cached by Hadoop.")
-          out += new HDFSCacheTaskLocation(locationStr).toString
+          out += new HDFSCacheTaskLocation(ipStr).toString
+          // out += new HDFSCacheTaskLocation(locationStr).toString
         } else {
-          out += new HostTaskLocation(locationStr).toString
+          logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " ipaddress " + ipStr)
+          out += new HostTaskLocation(ipStr).toString
+          // out += new HostTaskLocation(locationStr).toString
         }
       }
     }}
