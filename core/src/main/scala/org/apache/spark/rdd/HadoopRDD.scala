@@ -60,7 +60,7 @@ private[spark] class HadoopPartition(rddId: Int, idx: Int, s: InputSplit)
 
   override def hashCode(): Int = 41 * (41 + rddId) + idx
 
-  override val index: Int = idx
+  override val index: Int = idx + 100
 
   /**
    * Get any environment variables that should be added to the users environment when running pipes
@@ -302,7 +302,7 @@ class HadoopRDD[K, V](
   }
 
   override def getPreferredLocations(split: Partition): Seq[String] = {
-    logInfo("p2f@HadoopRDD getPreferredLocations paritiion id " + split.index)
+    logInfo("p2f@HadoopRDD getPreferredLocations partition id " + split.index)
     val hsplit = split.asInstanceOf[HadoopPartition].inputSplit.value
     val locs: Option[Seq[String]] = HadoopRDD.SPLIT_INFO_REFLECTIONS match {
       case Some(c) =>
