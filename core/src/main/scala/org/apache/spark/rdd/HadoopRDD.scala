@@ -424,18 +424,19 @@ private[spark] object HadoopRDD extends Logging {
         getStorageType.invoke(loc).asInstanceOf[String]
 
       if (locationStr != "localhost") {
-        val address = java.net.InetAddress.getByName(locationStr)
-        val ipStr = address.getHostAddress()
+        // val address = java.net.InetAddress.getByName(locationStr)
+        // val ipStr = address.getHostAddress()
 
         if (HadoopRDD.SPLIT_INFO_REFLECTIONS.get.isInMemory.
                 invoke(loc).asInstanceOf[Boolean]) {
           logInfo("p2f@Partition " + locationStr + " is cached by Hadoop.")
-          out += new HDFSCacheTaskLocation(ipStr).toString
-          // out += new HDFSCacheTaskLocation(locationStr).toString
+          // out += new HDFSCacheTaskLocation(ipStr).toString
+          out += new HDFSCacheTaskLocation(locationStr).toString
         } else {
-          logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " ipaddress " + ipStr)
-          out += new HostTaskLocation(ipStr).toString
-          // out += new HostTaskLocation(locationStr).toString
+          // logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " ipaddress " + ipStr)
+          logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr)
+          // out += new HostTaskLocation(ipStr).toString
+          out += new HostTaskLocation(locationStr).toString
         }
       }
     }}
