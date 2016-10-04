@@ -38,14 +38,26 @@ case class ExecutorCacheTaskLocation(override val host: String, executorId: Stri
 /**
  * A location on a host.
  */
+
 private [spark] case class HostTaskLocation(override val host: String) extends TaskLocation {
   override def toString: String = host
 }
 
-private [spark] case class HostTaskSSDLocation(override val host: String) extends TaskLocation {
-  override def toString: String = host
+private [spark] case class HostTaskRamdiskLocation(override val host: String) extends TaskLocation {
+  override def toString: String = TaskLocation.inRamdiskLocationTag + host
 }
 
+private [spark] case class HostTaskDiskLocation(override val host: String) extends TaskLocation {
+  override def toString: String = TaskLocation.inDiskLocationTag + host
+}
+
+private [spark] case class HostTaskSSDLocation(override val host: String) extends TaskLocation {
+  override def toString: String = TaskLocation.inSSDLocationTag + host
+}
+
+private [spark] case class HostTaskArchiveLocation(override val host: String) extends TaskLocation {
+  override def toString: String = TaskLocation.inArchiveLocationTag + host
+}
 /**
  * A location on a host that is cached by HDFS.
  */
@@ -59,9 +71,13 @@ private[spark] object TaskLocation {
   // confusion.  See  RFC 952 and RFC 1123 for information about the format of hostnames.
   val inMemoryLocationTag = "hdfs_cache_"
 
-  val inSSDLocationTag = "SSD"
+  val inRamdiskLocationTag = "RAMDISK_"
 
-  val inDiskLocationTag = "DISK"
+  val inSSDLocationTag = "SSD_"
+
+  val inDiskLocationTag = "DISK_"
+
+  val inArchiveLocationTag = "ARCHIVE_"
 
   // Identify locations of executors with this prefix.
   val executorLocationTag = "executor_"
