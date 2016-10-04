@@ -434,9 +434,12 @@ private[spark] object HadoopRDD extends Logging {
           out += new HDFSCacheTaskLocation(locationStr).toString
         } else {
           // logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " ipaddress " + ipStr)
-          logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr)
           // out += new HostTaskLocation(ipStr).toString
-          out += new HostTaskLocation(locationStr).toString
+          // out += new HostTaskLocation(locationStr).toString
+            val tasklocation = new HostTaskLocation(storagetypeStr + "_" + locationStr)
+          logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " tasklocation " + tasklocation.toString)
+            out += tasklocation.toString
+          }
         }
       }
     }}

@@ -47,12 +47,12 @@ private [spark] case class HostTaskRamdiskLocation(override val host: String) ex
   override def toString: String = TaskLocation.inRamdiskLocationTag + host
 }
 
-private [spark] case class HostTaskDiskLocation(override val host: String) extends TaskLocation {
-  override def toString: String = TaskLocation.inDiskLocationTag + host
-}
-
 private [spark] case class HostTaskSSDLocation(override val host: String) extends TaskLocation {
   override def toString: String = TaskLocation.inSSDLocationTag + host
+}
+
+private [spark] case class HostTaskDiskLocation(override val host: String) extends TaskLocation {
+  override def toString: String = TaskLocation.inDiskLocationTag + host
 }
 
 private [spark] case class HostTaskArchiveLocation(override val host: String) extends TaskLocation {
@@ -93,7 +93,7 @@ private[spark] object TaskLocation {
    */
   def apply(str: String): TaskLocation = {
     val hstr = str.stripPrefix(inMemoryLocationTag)
-    if (hstr.equals(str)) {
+    if (hstr.equals(str)) {  // if equals, it means that it is not inMemoryLocation
       if (str.startsWith(executorLocationTag)) {
         val hostAndExecutorId = str.stripPrefix(executorLocationTag)
         val splits = hostAndExecutorId.split("_", 2)
@@ -101,12 +101,20 @@ private[spark] object TaskLocation {
         val Array(host, executorId) = splits
         new ExecutorCacheTaskLocation(host, executorId)
       } else {
-        val tstr = str.stripPrefix(inSSDLocationTag)
-        if (tstr.equals(hstr)) {
-          val ttstr = tstr.stripPrefix(inDiskLocationTag)
-          new HostTaskLocation(ttstr)
+        if (str.startsWith(inRamdiskLocationTag)) {
+          val ramdisk = str.stripPrefix(inRamdiskLocationTag)
+          new HostTaskRamdiskLocation(ramdisk)
+        } else if (str.startsWith(inSSDLocationTag)) {
+          val ssd = str.stripPrefix(inSSDLocationTag)
+          new HostTaskSSDLocation(ssd)
+        } else if (str.startsWith(inDiskLocationTag)) {
+          val disk = str.stripPrefix(inDiskLocationTag)
+          new HostTaskDiskLocation(disk)
+        } else if (str.startsWith(inArchiveLocationTag)) {
+          val archive = str.stripPrefix(inArchiveLocationTag)
+          new HostTaskArchiveLocation(archive)
         } else {
-          new HostTaskSSDLocation(tstr)
+          new HostTaskLocation(str)
         }
       }
     } else {
