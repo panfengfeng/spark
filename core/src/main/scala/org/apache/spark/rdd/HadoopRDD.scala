@@ -60,7 +60,7 @@ private[spark] class HadoopPartition(rddId: Int, idx: Int, s: InputSplit)
 
   override def hashCode(): Int = 41 * (41 + rddId) + idx
 
-  override val index: Int = idx + 100
+  override val index: Int = idx
 
   /**
    * Get any environment variables that should be added to the users environment when running pipes
