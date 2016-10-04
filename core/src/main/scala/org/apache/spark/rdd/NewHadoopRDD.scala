@@ -110,6 +110,7 @@ class NewHadoopRDD[K, V](
   }
 
   override def getPartitions: Array[Partition] = {
+    logInfo("p2f@NewHadoopRDD getPartitions")
     val inputFormat = inputFormatClass.newInstance
     inputFormat match {
       case configurable: Configurable =>
@@ -239,6 +240,7 @@ class NewHadoopRDD[K, V](
   }
 
   override def getPreferredLocations(hsplit: Partition): Seq[String] = {
+    logInfo("p2f@NewHadoopRDD getPreferredLocations")
     val split = hsplit.asInstanceOf[NewHadoopPartition].serializableHadoopSplit.value
     val locs = HadoopRDD.SPLIT_INFO_REFLECTIONS match {
       case Some(c) =>

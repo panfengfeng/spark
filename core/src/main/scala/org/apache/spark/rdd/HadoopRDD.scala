@@ -194,6 +194,7 @@ class HadoopRDD[K, V](
   }
 
   override def getPartitions: Array[Partition] = {
+    logInfo("p2f@HadoopRDD getPartitions")
     val jobConf = getJobConf()
     // add the credentials here as this can be called before SparkContext initialized
     SparkHadoopUtil.get.addCredentials(jobConf)
@@ -301,9 +302,11 @@ class HadoopRDD[K, V](
   }
 
   override def getPreferredLocations(split: Partition): Seq[String] = {
+    logInfo("p2f@HadoopRDD getPreferredLocations")
     val hsplit = split.asInstanceOf[HadoopPartition].inputSplit.value
     val locs: Option[Seq[String]] = HadoopRDD.SPLIT_INFO_REFLECTIONS match {
       case Some(c) =>
+        logInfo("HadoopRDD getPreferredLocations Some(c)")
         try {
           val lsplit = c.inputSplitWithLocationInfo.cast(hsplit)
           val infos = c.getLocationInfo.invoke(lsplit).asInstanceOf[Array[AnyRef]]
@@ -313,7 +316,9 @@ class HadoopRDD[K, V](
             logDebug("Failed to use InputSplitWithLocations.", e)
             None
         }
-      case None => None
+      case None =>
+        logInfo("HadoopRDD getPreferredLocations None")
+        None
     }
     locs.getOrElse(hsplit.getLocations.filter(_ != "localhost"))
   }
@@ -406,7 +411,7 @@ private[spark] object HadoopRDD extends Logging {
     Some(new SplitInfoReflections)
   } catch {
     case e: Exception =>
-      logDebug("SplitLocationInfo and other new Hadoop classes are " +
+      logInfo("SplitLocationInfo and other new Hadoop classes are " +
           "unavailable. Using the older Hadoop location info code.", e)
       None
   }
@@ -426,7 +431,7 @@ private[spark] object HadoopRDD extends Logging {
 
         if (HadoopRDD.SPLIT_INFO_REFLECTIONS.get.isInMemory.
                 invoke(loc).asInstanceOf[Boolean]) {
-          logDebug("Partition " + locationStr + " is cached by Hadoop.")
+          logInfo("p2f@Partition " + locationStr + " is cached by Hadoop.")
           out += new HDFSCacheTaskLocation(ipStr).toString
           // out += new HDFSCacheTaskLocation(locationStr).toString
         } else {
