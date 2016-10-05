@@ -47,7 +47,7 @@ import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.executor.DataReadMethod
 import org.apache.spark.rdd.HadoopRDD.HadoopMapPartitionsWithSplitRDD
 import org.apache.spark.util.{SerializableConfiguration, ShutdownHookManager, NextIterator, Utils}
-import org.apache.spark.scheduler.{HostTaskLocation, HDFSCacheTaskLocation}
+import org.apache.spark.scheduler.{TaskLocation, HostTaskLocation, HDFSCacheTaskLocation}
 import org.apache.spark.storage.StorageLevel
 
 /**
@@ -424,21 +424,19 @@ private[spark] object HadoopRDD extends Logging {
         getStorageType.invoke(loc).asInstanceOf[String]
 
       if (locationStr != "localhost") {
-        // val address = java.net.InetAddress.getByName(locationStr)
-        // val ipStr = address.getHostAddress()
-
         if (HadoopRDD.SPLIT_INFO_REFLECTIONS.get.isInMemory.
                 invoke(loc).asInstanceOf[Boolean]) {
           logInfo("p2f@Partition " + locationStr + " is cached by Hadoop.")
-          // out += new HDFSCacheTaskLocation(ipStr).toString
           out += new HDFSCacheTaskLocation(locationStr).toString
         } else {
           // logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " ipaddress " + ipStr)
-          // out += new HostTaskLocation(ipStr).toString
           // out += new HostTaskLocation(locationStr).toString
-            val tasklocation = new HostTaskLocation(storagetypeStr + "_" + locationStr)
-            logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " tasklocation " + tasklocation.toString)
-            out += tasklocation.toString
+            logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr)
+            if (storagetypeStr.isEmpty) {
+              out += new HostTaskLocation(locationStr).toString
+            } else {
+              out += new TaskLocation(storagetypeStr + "_" + locationStr).toString
+            }
         }
       }
     }}
