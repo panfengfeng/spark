@@ -435,7 +435,7 @@ private[spark] object HadoopRDD extends Logging {
             if (storagetypeStr.isEmpty) {
               out += new HostTaskLocation(locationStr).toString
             } else {
-              out += new TaskLocation(storagetypeStr + "_" + locationStr).toString
+              out += TaskLocation(storagetypeStr + "_" + locationStr).toString
             }
         }
       }
