@@ -186,31 +186,31 @@ private[spark] class TaskSetManager(
   logInfo("print pendingTasksForHost")
   for (k <- pendingTasksForHost.keySet) {
     for (v <- pendingTasksForHost(k))
-      logInfo("key " + k + " value " + v)
+      logInfo("pendingTasksForHost key " + k + " value " + v)
   }
 
   logInfo("print pendingTasksForHostRamdisk")
   for (k <- pendingTasksForHostRamdisk.keySet) {
     for (v <- pendingTasksForHostRamdisk(k))
-      logInfo("key " + k + " value " + v)
+      logInfo("pendingTasksForHostRamdisk key " + k + " value " + v)
   }
 
   logInfo("print pendingTasksForHostSSD")
   for (k <- pendingTasksForHostSSD.keySet) {
     for (v <- pendingTasksForHostSSD(k))
-      logInfo("key " + k + " value " + v)
+      logInfo("pendingTasksForHostSSD key " + k + " value " + v)
   }
 
   logInfo("print pendingTasksForHostDisk")
   for (k <- pendingTasksForHostDisk.keySet) {
     for (v <- pendingTasksForHostDisk(k))
-      logInfo("key " + k + " value " + v)
+      logInfo("pendingTasksForHostDisk key " + k + " value " + v)
   }
 
   logInfo("print pendingTasksForHostArchive")
   for (k <- pendingTasksForHostArchive.keySet) {
     for (v <- pendingTasksForHostArchive(k))
-      logInfo("key " + k + " value " + v)
+      logInfo("pendingTasksForHostArchive key " + k + " value " + v)
   }
 
   // Figure out which locality levels we have in our TaskSet, so we can do delay scheduling
@@ -288,12 +288,44 @@ private[spark] class TaskSetManager(
     pendingTasksForHost.getOrElse(host, ArrayBuffer())
   }
 
+  private def getPendingTasksForHostRamdisk(host: String): ArrayBuffer[Int] = {
+    pendingTasksForHostRamdisk.getOrElse(host, ArrayBuffer())
+  }
+
+  private def getPendingTasksForHostSSD(host: String): ArrayBuffer[Int] = {
+    pendingTasksForHostSSD.getOrElse(host, ArrayBuffer())
+  }
+
+  private def getPendingTasksForHostDisk(host: String): ArrayBuffer[Int] = {
+    pendingTasksForHostDisk.getOrElse(host, ArrayBuffer())
+  }
+
+  private def getPendingTasksForHostArchive(host: String): ArrayBuffer[Int] = {
+    pendingTasksForHostArchive.getOrElse(host, ArrayBuffer())
+  }
+
   /**
    * Return the pending rack-local task list for a given rack, or an empty list if
    * there is no map entry for that rack
    */
   private def getPendingTasksForRack(rack: String): ArrayBuffer[Int] = {
     pendingTasksForRack.getOrElse(rack, ArrayBuffer())
+  }
+
+  private def getPendingTasksForRackRamdisk(rack: String): ArrayBuffer[Int] = {
+    pendingTasksForRackRamdisk.getOrElse(rack, ArrayBuffer())
+  }
+
+  private def getPendingTasksForRackSSD(rack: String): ArrayBuffer[Int] = {
+    pendingTasksForRackSSD.getOrElse(rack, ArrayBuffer())
+  }
+
+  private def getPendingTasksForRackDisk(rack: String): ArrayBuffer[Int] = {
+    pendingTasksForRackDisk.getOrElse(rack, ArrayBuffer())
+  }
+
+  private def getPendingTasksForRackArchive(rack: String): ArrayBuffer[Int] = {
+    pendingTasksForRackArchive.getOrElse(rack, ArrayBuffer())
   }
 
   /**
