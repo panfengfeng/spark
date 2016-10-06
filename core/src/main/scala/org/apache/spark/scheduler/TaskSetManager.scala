@@ -461,7 +461,26 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
+      /*
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
+        logInfo("dequeueTaskFrom Ramdisk List id " + index + " host " + host)
+        return Some((index, TaskLocality.NODE_LOCAL, false))
+      }
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForHostSSD(host))) {
+        logInfo("dequeueTaskFrom SSD List id " + index + " host " + host)
+        return Some((index, TaskLocality.NODE_LOCAL, false))
+      }
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
+        logInfo("dequeueTaskFrom Disk List id " + index + " host " + host)
+        return Some((index, TaskLocality.NODE_LOCAL, false))
+      }
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForHostArchive(host))) {
+        logInfo("dequeueTaskFrom Archive List id " + index + " host " + host)
+        return Some((index, TaskLocality.NODE_LOCAL, false))
+      }
+      */
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
+        logInfo("dequeueTaskFrom all List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
     }
