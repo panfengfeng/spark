@@ -461,7 +461,6 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
-      /*
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
         logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -478,7 +477,6 @@ private[spark] class TaskSetManager(
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
-      */
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
         logInfo("dequeueTaskFrom all(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
