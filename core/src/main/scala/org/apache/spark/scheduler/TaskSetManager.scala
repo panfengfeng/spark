@@ -462,23 +462,23 @@ private[spark] class TaskSetManager(
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
-        logInfo("dequeueTaskFrom Ramdisk List id " + index + " host " + host)
+        logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostSSD(host))) {
-        logInfo("dequeueTaskFrom SSD List id " + index + " host " + host)
+        logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
-        logInfo("dequeueTaskFrom Disk List id " + index + " host " + host)
+        logInfo("dequeueTaskFrom Disk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostArchive(host))) {
-        logInfo("dequeueTaskFrom Archive List id " + index + " host " + host)
+        logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
-        logInfo("dequeueTaskFrom all List id " + index + " host " + host)
+        logInfo("dequeueTaskFrom all(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
     }
@@ -486,7 +486,8 @@ private[spark] class TaskSetManager(
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NO_PREF)) {
       // Look for noPref tasks after NODE_LOCAL for minimize cross-rack traffic
       for (index <- dequeueTaskFromList(execId, pendingTasksWithNoPrefs)) {
-        return Some((index, TaskLocality.PROCESS_LOCAL, false))
+        logInfo("dequeueTaskFrom all(no_pref) List id " + index + " host " + host)
+        return Some((index, TaskLocality.NO_PREF, false))
       }
     }
 
@@ -495,12 +496,14 @@ private[spark] class TaskSetManager(
         rack <- sched.getRackForHost(host)
         index <- dequeueTaskFromList(execId, getPendingTasksForRack(rack))
       } {
+        logInfo("dequeueTaskFrom all(rack_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.RACK_LOCAL, false))
       }
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
+        logInfo("dequeueTaskFrom all(any) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
       }
     }
