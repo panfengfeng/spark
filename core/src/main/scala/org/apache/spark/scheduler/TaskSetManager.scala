@@ -183,6 +183,7 @@ private[spark] class TaskSetManager(
     addPendingTask(i)
   }
 
+  /*
   logInfo("print pendingTasksForHost")
   for (k <- pendingTasksForHost.keySet) {
     for (v <- pendingTasksForHost(k))
@@ -212,7 +213,7 @@ private[spark] class TaskSetManager(
     for (v <- pendingTasksForHostArchive(k))
       logInfo("pendingTasksForHostArchive key " + k + " value " + v)
   }
-
+  */
   // Figure out which locality levels we have in our TaskSet, so we can do delay scheduling
   var myLocalityLevels = computeValidLocalityLevels()
   var localityWaits = myLocalityLevels.map(getLocalityWait) // Time to wait at each level
