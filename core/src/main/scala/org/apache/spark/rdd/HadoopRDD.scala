@@ -309,7 +309,7 @@ class HadoopRDD[K, V](
         try {
           val lsplit = c.inputSplitWithLocationInfo.cast(hsplit)
           val infos = c.getLocationInfo.invoke(lsplit).asInstanceOf[Array[AnyRef]]
-          Some(HadoopRDD.convertSplitLocationInfo(infos))
+          Some(HadoopRDD.convertSplitLocationInfo(infos, split.index))
         } catch {
           case e: Exception =>
             logDebug("Failed to use InputSplitWithLocations.", e)
@@ -414,7 +414,7 @@ private[spark] object HadoopRDD extends Logging {
       None
   }
 
-  private[spark] def convertSplitLocationInfo(infos: Array[AnyRef]): Seq[String] = {
+  private[spark] def convertSplitLocationInfo(infos: Array[AnyRef], index: Int): Seq[String] = {
     val out = ListBuffer[String]()
     infos.foreach { loc => {
       val locationStr = HadoopRDD.SPLIT_INFO_REFLECTIONS.get.
@@ -433,11 +433,11 @@ private[spark] object HadoopRDD extends Logging {
           // out += new HostTaskLocation(locationStr).toString
             if (storagetypeStr.isEmpty) {
               val ele = new HostTaskLocation(locationStr).toString
-              logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " out ele " + ele)
+              logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " out ele " + ele + " partition " + index)
               out += ele
             } else {
               val ele = TaskLocation(storagetypeStr + "_" + locationStr).toString
-              logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " out ele " + ele)
+              logInfo("p2f@Partition " + locationStr + " is disked by Hadoop, and storagetype " + storagetypeStr + " out ele " + ele + " partition " + index)
               out += ele
             }
         }

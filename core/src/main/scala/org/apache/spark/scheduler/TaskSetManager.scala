@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import java.util.Arrays
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
@@ -128,8 +129,24 @@ private[spark] class TaskSetManager(
   // but at host level.
   private val pendingTasksForHost = new HashMap[String, ArrayBuffer[Int]]
 
+  private val pendingTasksForHostRamdisk = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForHostSSD = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForHostDisk = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForHostArchive = new HashMap[String, ArrayBuffer[Int]]
+
   // Set of pending tasks for each rack -- similar to the above.
   private val pendingTasksForRack = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForRackRamdisk = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForRackSSD = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForRackDisk = new HashMap[String, ArrayBuffer[Int]]
+
+  private val pendingTasksForRackArchive = new HashMap[String, ArrayBuffer[Int]]
 
   // Set containing pending tasks with no locality preferences.
   var pendingTasksWithNoPrefs = new ArrayBuffer[Int]
@@ -164,6 +181,36 @@ private[spark] class TaskSetManager(
   // of task index so that tasks with low indices get launched first.
   for (i <- (0 until numTasks).reverse) {
     addPendingTask(i)
+  }
+
+  logInfo("print pendingTasksForHost")
+  for (k <- pendingTasksForHost.keySet) {
+    for (v <- pendingTasksForHost(k))
+      logInfo("key " + k + " value " + v)
+  }
+
+  logInfo("print pendingTasksForHostRamdisk")
+  for (k <- pendingTasksForHostRamdisk.keySet) {
+    for (v <- pendingTasksForHostRamdisk(k))
+      logInfo("key " + k + " value " + v)
+  }
+
+  logInfo("print pendingTasksForHostSSD")
+  for (k <- pendingTasksForHostSSD.keySet) {
+    for (v <- pendingTasksForHostSSD(k))
+      logInfo("key " + k + " value " + v)
+  }
+
+  logInfo("print pendingTasksForHostDisk")
+  for (k <- pendingTasksForHostDisk.keySet) {
+    for (v <- pendingTasksForHostDisk(k))
+      logInfo("key " + k + " value " + v)
+  }
+
+  logInfo("print pendingTasksForHostArchive")
+  for (k <- pendingTasksForHostArchive.keySet) {
+    for (v <- pendingTasksForHostArchive(k))
+      logInfo("key " + k + " value " + v)
   }
 
   // Figure out which locality levels we have in our TaskSet, so we can do delay scheduling
@@ -202,6 +249,14 @@ private[spark] class TaskSetManager(
                 ", but there are no executors alive there.")
           }
         }
+        case e: HostTaskRamdiskLocation =>
+          pendingTasksForHostRamdisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+        case e: HostTaskSSDLocation =>
+          pendingTasksForHostSSD.getOrElseUpdate(e.host, new ArrayBuffer) += index
+        case e: HostTaskDiskLocation =>
+          pendingTasksForHostDisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+        case e: HostTaskArchiveLocation =>
+          pendingTasksForHostArchive.getOrElseUpdate(e.host, new ArrayBuffer) += index
         case _ => Unit
       }
       pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
