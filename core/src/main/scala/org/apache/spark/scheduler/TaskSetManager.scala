@@ -262,6 +262,17 @@ private[spark] class TaskSetManager(
       }
       pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
       for (rack <- sched.getRackForHost(loc.host)) {
+        loc match {
+          case e: HostTaskRamdiskLocation =>
+            pendingTasksForRackRamdisk.getOrElseUpdate(rack, new ArrayBuffer) += index
+          case e: HostTaskSSDLocation =>
+            pendingTasksForRackSSD.getOrElseUpdate(rack, new ArrayBuffer) += index
+          case e: HostTaskDiskLocation =>
+            pendingTasksForRackDisk.getOrElseUpdate(rack, new ArrayBuffer) += index
+          case e: HostTaskArchiveLocation =>
+            pendingTasksForRackArchive.getOrElseUpdate(rack, new ArrayBuffer) += index
+          case _ => Unit
+        }
         pendingTasksForRack.getOrElseUpdate(rack, new ArrayBuffer) += index
       }
     }
@@ -492,6 +503,38 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.RACK_LOCAL)) {
+      for {
+        rack <- sched.getRackForHost(host)
+        index <- dequeueTaskFromList(execId, getPendingTasksForRackRamdisk(rack))
+      } {
+        logInfo("dequeueTaskFrom Ramdisk(rack_local) List id " + index + " host " + host)
+        return Some((index, TaskLocality.RACK_LOCAL, false))
+      }
+
+      for {
+        rack <- sched.getRackForHost(host)
+        index <- dequeueTaskFromList(execId, getPendingTasksForRackSSD(rack))
+      } {
+        logInfo("dequeueTaskFrom SSD(rack_local) List id " + index + " host " + host)
+        return Some((index, TaskLocality.RACK_LOCAL, false))
+      }
+
+      for {
+        rack <- sched.getRackForHost(host)
+        index <- dequeueTaskFromList(execId, getPendingTasksForRackDisk(rack))
+      } {
+        logInfo("dequeueTaskFrom Disk(rack_local) List id " + index + " host " + host)
+        return Some((index, TaskLocality.RACK_LOCAL, false))
+      }
+
+      for {
+        rack <- sched.getRackForHost(host)
+        index <- dequeueTaskFromList(execId, getPendingTasksForRackArchive(rack))
+      } {
+        logInfo("dequeueTaskFrom Archive(rack_local) List id " + index + " host " + host)
+        return Some((index, TaskLocality.RACK_LOCAL, false))
+      }
+
       for {
         rack <- sched.getRackForHost(host)
         index <- dequeueTaskFromList(execId, getPendingTasksForRack(rack))
