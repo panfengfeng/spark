@@ -152,6 +152,10 @@ private[spark] class TaskSetManager(
   var pendingTasksWithNoPrefs = new ArrayBuffer[Int]
 
   // Set containing all pending tasks (also used as a stack, as above).
+  val allPendingTasksRamdisk = new ArrayBuffer[Int]
+  val allPendingTasksSSD = new ArrayBuffer[Int]
+  val allPendingTasksDisk = new ArrayBuffer[Int]
+  val allPendingTasksArchive = new ArrayBuffer[Int]
   val allPendingTasks = new ArrayBuffer[Int]
 
   // Tasks that can be speculated. Since these will be a small fraction of total
@@ -252,12 +256,16 @@ private[spark] class TaskSetManager(
         }
         case e: HostTaskRamdiskLocation =>
           pendingTasksForHostRamdisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksRamdisk += index
         case e: HostTaskSSDLocation =>
           pendingTasksForHostSSD.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksSSD += index
         case e: HostTaskDiskLocation =>
           pendingTasksForHostDisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksDisk += index
         case e: HostTaskArchiveLocation =>
           pendingTasksForHostArchive.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksArchive += index
         case _ => Unit
       }
       pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
@@ -545,6 +553,22 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
+      for (index <- dequeueTaskFromList(execId, allPendingTasksRamdisk)) {
+        logInfo("dequeueTaskFrom all(ramdisk) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksSSD)) {
+        logInfo("dequeueTaskFrom all(ssd) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksDisk)) {
+        logInfo("dequeueTaskFrom all(disk) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksArchive)) {
+        logInfo("dequeueTaskFrom all(archieve) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
         logInfo("dequeueTaskFrom all(any) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
