@@ -153,6 +153,10 @@ private[spark] class TaskSetManager(
 
   // Set containing all pending tasks (also used as a stack, as above).
   val allPendingTasks = new ArrayBuffer[Int]
+  val allPendingTasksRamdisk = new ArrayBuffer[Int]
+  val allPendingTasksSSD = new ArrayBuffer[Int]
+  val allPendingTasksDisk = new ArrayBuffer[Int]
+  val allPendingTasksArchive = new ArrayBuffer[Int]
 
   // Tasks that can be speculated. Since these will be a small fraction of total
   // tasks, we'll just hold them in a HashSet.
@@ -252,12 +256,16 @@ private[spark] class TaskSetManager(
         }
         case e: HostTaskRamdiskLocation =>
           pendingTasksForHostRamdisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksRamdisk += index
         case e: HostTaskSSDLocation =>
           pendingTasksForHostSSD.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksSSD += index
         case e: HostTaskDiskLocation =>
           pendingTasksForHostDisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksDisk += index
         case e: HostTaskArchiveLocation =>
           pendingTasksForHostArchive.getOrElseUpdate(e.host, new ArrayBuffer) += index
+          allPendingTasksArchive += index
         case _ => Unit
       }
       pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
@@ -459,7 +467,7 @@ private[spark] class TaskSetManager(
     for (index <- dequeueTaskFromList(execId, getPendingTasksForExecutor(execId))) {
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
-
+/*
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
         logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
@@ -482,7 +490,7 @@ private[spark] class TaskSetManager(
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
     }
-
+*/
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NO_PREF)) {
       // Look for noPref tasks after NODE_LOCAL for minimize cross-rack traffic
       for (index <- dequeueTaskFromList(execId, pendingTasksWithNoPrefs)) {
@@ -502,6 +510,22 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
+      for (index <- dequeueTaskFromList(execId, allPendingTasksRamdisk)) {
+        logInfo("dequeueTaskFrom all(Ramdisk) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksSSD)) {
+        logInfo("dequeueTaskFrom all(SSD) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksDisk)) {
+        logInfo("dequeueTaskFrom all(Disk) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksArchive)) {
+        logInfo("dequeueTaskFrom all(Archive) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
         logInfo("dequeueTaskFrom all(any) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
