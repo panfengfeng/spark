@@ -297,12 +297,48 @@ private[spark] class TaskSetManager(
     pendingTasksForHostSSD.getOrElse(host, ArrayBuffer())
   }
 
+  private def getPendingTasksForSSD(): ArrayBuffer[Int] = {
+    var longestQueue = new ArrayBuffer[Int]
+
+    for (queue <- pendingTasksForHostSSD.values) {
+      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
+        longestQueue = queue
+      }
+    }
+
+    longestQueue
+  }
+
   private def getPendingTasksForHostDisk(host: String): ArrayBuffer[Int] = {
     pendingTasksForHostDisk.getOrElse(host, ArrayBuffer())
   }
 
+  private def getPendingTasksForDisk(): ArrayBuffer[Int] = {
+    var longestQueue = new ArrayBuffer[Int]
+
+    for (queue <- pendingTasksForHostDisk.values) {
+      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
+        longestQueue = queue
+      }
+    }
+
+    longestQueue
+  }
+
   private def getPendingTasksForHostArchive(host: String): ArrayBuffer[Int] = {
     pendingTasksForHostArchive.getOrElse(host, ArrayBuffer())
+  }
+
+  private def getPendingTasksForArchive(): ArrayBuffer[Int] = {
+    var longestQueue = new ArrayBuffer[Int]
+
+    for (queue <- pendingTasksForHostArchive.values) {
+      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
+        longestQueue = queue
+      }
+    }
+
+    longestQueue
   }
 
   /**
@@ -460,17 +496,8 @@ private[spark] class TaskSetManager(
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
 
-    for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
-      logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
-      return Some((index, TaskLocality.NODE_LOCAL, false))
-    }
-    for (index <- dequeueTaskFromList(execId, getPendingTasksForHostSSD(host))) {
-      logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " host " + host)
-      return Some((index, TaskLocality.NODE_LOCAL, false))
-    }
-
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
-      /*
+
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
         logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -479,15 +506,17 @@ private[spark] class TaskSetManager(
         logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
-      */
+
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
         logInfo("dequeueTaskFrom Disk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
+
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostArchive(host))) {
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
+
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
         logInfo("dequeueTaskFrom all(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -513,6 +542,21 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForArchive())) {
+        logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
+        return Some((index, TaskLocality.NODE_LOCAL, false))
+      }
+
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForDisk())) {
+        logInfo("dequeueTaskFrom Disk Task List id " + index)
+        return Some((index, TaskLocality.ANY, false))
+      }
+
+      for (index <- dequeueTaskFromList(execId, getPendingTasksForSSD())) {
+        logInfo("dequeueTaskFrom SSD Task List id " + index)
+        return Some((index, TaskLocality.ANY, false))
+      }
+
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
         logInfo("dequeueTaskFrom all(any) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
