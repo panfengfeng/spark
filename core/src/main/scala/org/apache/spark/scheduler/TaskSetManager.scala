@@ -298,15 +298,19 @@ private[spark] class TaskSetManager(
   }
 
   private def getPendingTasksForSSD(): ArrayBuffer[Int] = {
-    var longestQueue = new ArrayBuffer[Int]
+    var longestQueue = "" -> new ArrayBuffer[Int]
 
-    for (queue <- pendingTasksForHostSSD.values) {
-      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
-        longestQueue = queue
+    for ((k, v) <- pendingTasksForHostSSD) {
+      if (longestQueue._2.size == 0 || v.size.compareTo(longestQueue._2.size) > 0) {
+        longestQueue = (k, v)
       }
     }
 
-    longestQueue
+    if (longestQueue._2.size > 0) {
+      logInfo("get one remote SSD task from host " + longestQueue._1)
+    }
+
+    longestQueue._2
   }
 
   private def getPendingTasksForHostDisk(host: String): ArrayBuffer[Int] = {
@@ -314,15 +318,19 @@ private[spark] class TaskSetManager(
   }
 
   private def getPendingTasksForDisk(): ArrayBuffer[Int] = {
-    var longestQueue = new ArrayBuffer[Int]
+    var longestQueue = "" -> new ArrayBuffer[Int]
 
-    for (queue <- pendingTasksForHostDisk.values) {
-      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
-        longestQueue = queue
+    for ((k, v) <- pendingTasksForHostDisk) {
+      if (longestQueue._2.size == 0 || v.size.compareTo(longestQueue._2.size) > 0) {
+        longestQueue = (k, v)
       }
     }
 
-    longestQueue
+    if (longestQueue._2.size > 0) {
+      logInfo("get one remote Disk task from host " + longestQueue._1)
+    }
+
+    longestQueue._2
   }
 
   private def getPendingTasksForHostArchive(host: String): ArrayBuffer[Int] = {
@@ -330,15 +338,19 @@ private[spark] class TaskSetManager(
   }
 
   private def getPendingTasksForArchive(): ArrayBuffer[Int] = {
-    var longestQueue = new ArrayBuffer[Int]
+    var longestQueue = "" -> new ArrayBuffer[Int]
 
-    for (queue <- pendingTasksForHostArchive.values) {
-      if (longestQueue.size == 0 || queue.size.compareTo(longestQueue.size) > 0) {
-        longestQueue = queue
+    for ((k, v) <- pendingTasksForHostArchive) {
+      if (longestQueue._2.size == 0 || v.size.compareTo(longestQueue._2.size) > 0) {
+        longestQueue = (k, v)
       }
     }
 
-    longestQueue
+    if (longestQueue._2.size > 0) {
+      logInfo("get one remote Archive task from host " + longestQueue._1)
+    }
+
+    longestQueue._2
   }
 
   /**
