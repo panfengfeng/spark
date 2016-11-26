@@ -232,35 +232,63 @@ private[spark] class TaskSetManager(
 
   /** Add a task to all the pending-task lists that it should be on. */
   private def addPendingTask(index: Int) {
-    for (loc <- tasks(index).preferredLocations) {
-      loc match {
-        case e: ExecutorCacheTaskLocation =>
-          pendingTasksForExecutor.getOrElseUpdate(e.executorId, new ArrayBuffer) += index
-        case e: HDFSCacheTaskLocation => {
-          val exe = sched.getExecutorsAliveOnHost(loc.host)
-          exe match {
-            case Some(set) => {
-              for (e <- set) {
-                pendingTasksForExecutor.getOrElseUpdate(e, new ArrayBuffer) += index
-              }
-              logInfo(s"Pending task $index has a cached location at ${e.host} " +
-                ", where there are executors " + set.mkString(","))
-            }
-            case None => logDebug(s"Pending task $index has a cached location at ${e.host} " +
-                ", but there are no executors alive there.")
-          }
-        }
-        case e: HostTaskRamdiskLocation =>
-          pendingTasksForHostRamdisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
-        case e: HostTaskSSDLocation =>
-          pendingTasksForHostSSD.getOrElseUpdate(e.host, new ArrayBuffer) += index
-        case e: HostTaskDiskLocation =>
-          pendingTasksForHostDisk.getOrElseUpdate(e.host, new ArrayBuffer) += index
-        case e: HostTaskArchiveLocation =>
-          pendingTasksForHostArchive.getOrElseUpdate(e.host, new ArrayBuffer) += index
-        case _ => Unit
+    // Find out whether task has an SSD duplicate
+    var goNextLocality = true
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == ExecutorCacheTaskLocation) {
+        pendingTasksForExecutor.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        goNextLocality = false
       }
-      pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == HDFSCacheTaskLocation) {
+        val exe = sched.getExecutorsAliveOnHost(loc.host)
+        exe match {
+          case Some(set) => {
+            for (e <- set) {
+              pendingTasksForExecutor.getOrElseUpdate(e, new ArrayBuffer) += index
+              goNextLocality = false
+            }
+            logInfo(s"Pending task $index has a cached location at ${loc.host} " +
+              ", where there are executors " + set.mkString(","))
+          }
+          case None => logDebug(s"Pending task $index has a cached location at ${loc.host} " +
+            ", but there are no executors alive there.")
+        }
+      }
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == HostTaskRamdiskLocation) {
+        pendingTasksForHostRamdisk.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        goNextLocality = false
+      }
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == HostTaskSSDLocation) {
+        pendingTasksForHostSSD.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        goNextLocality = false
+      }
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == HostTaskDiskLocation) {
+        pendingTasksForHostDisk.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        goNextLocality = false
+      }
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
+      if (loc == HostTaskArchiveLocation) {
+        pendingTasksForHostArchive.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        goNextLocality = false
+      }
+    }
+
+    for (loc <- tasks(index).preferredLocations if goNextLocality) {
       for (rack <- sched.getRackForHost(loc.host)) {
         pendingTasksForRack.getOrElseUpdate(rack, new ArrayBuffer) += index
       }
