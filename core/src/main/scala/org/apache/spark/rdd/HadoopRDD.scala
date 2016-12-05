@@ -211,15 +211,17 @@ class HadoopRDD[K, V](
     val iter = new NextIterator[(K, V)] {
 
       val split = theSplit.asInstanceOf[HadoopPartition]
-      logInfo("Input split: " + split.inputSplit)
+      logInfo("hadoopRDD Input split: " + split.inputSplit)
       val jobConf = getJobConf()
 
       val inputMetrics = context.taskMetrics.getInputMetricsForReadMethod(DataReadMethod.Hadoop)
 
       // Sets the thread local variable for the file's name
       split.inputSplit.value match {
-        case fs: FileSplit => SqlNewHadoopRDDState.setInputFileName(fs.getPath.toString)
-        case _ => SqlNewHadoopRDDState.unsetInputFileName()
+        case fs: FileSplit =>
+          SqlNewHadoopRDDState.setInputFileName(fs.getPath.toString)
+        case _ =>
+          SqlNewHadoopRDDState.unsetInputFileName()
       }
 
       // Find a function that will return the FileSystem bytes read by this thread. Do this before
@@ -238,6 +240,7 @@ class HadoopRDD[K, V](
       HadoopRDD.addLocalConfiguration(new SimpleDateFormat("yyyyMMddHHmm").format(createTime),
         context.stageId, theSplit.index, context.attemptNumber, jobConf)
       reader = inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
+      logInfo("inputFormat " + inputFormat.toString + " reader " + reader.toString);
 
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener{ context => closeIfNeeded() }
@@ -388,6 +391,7 @@ private[spark] object HadoopRDD extends Logging {
     override def compute(split: Partition, context: TaskContext): Iterator[U] = {
       val partition = split.asInstanceOf[HadoopPartition]
       val inputSplit = partition.inputSplit.value
+      logInfo("HadoopMapPartitionsWithSplitRDD inputSplit " + inputSplit);
       f(inputSplit, firstParent[T].iterator(split, context))
     }
   }

@@ -23,13 +23,12 @@ import java.nio.ByteBuffer
 import scala.collection.mutable.HashMap
 
 import org.apache.spark.metrics.MetricsSystem
-import org.apache.spark.{Accumulator, SparkEnv, TaskContextImpl, TaskContext}
+import org.apache.spark._
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.memory.TaskMemoryManager
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.ByteBufferInputStream
 import org.apache.spark.util.Utils
-
 
 /**
  * A unit of execution. We have two kinds of Task's in Spark:
@@ -127,6 +126,8 @@ private[spark] abstract class Task[T](
   def runTask(context: TaskContext): T
 
   def preferredLocations: Seq[TaskLocation] = Nil
+
+  def fetchpartition: Partition
 
   // Map output tracker epoch. Will be set by TaskScheduler.
   var epoch: Long = -1

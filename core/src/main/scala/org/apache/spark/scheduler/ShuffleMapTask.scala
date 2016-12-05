@@ -58,7 +58,7 @@ private[spark] class ShuffleMapTask(
   }
 
   override def runTask(context: TaskContext): MapStatus = {
-    // Deserialize the RDD using the broadcast variable.
+    // Deserialize the RDD using the broadcast variablde.
     val deserializeStartTime = System.currentTimeMillis()
     val ser = SparkEnv.get.closureSerializer.newInstance()
     val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](
@@ -87,6 +87,8 @@ private[spark] class ShuffleMapTask(
   }
 
   override def preferredLocations: Seq[TaskLocation] = preferredLocs
+
+  override def fetchpartition: Partition = partition
 
   override def toString: String = "ShuffleMapTask(%d, %d)".format(stageId, partitionId)
 }
