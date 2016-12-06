@@ -35,6 +35,8 @@ import org.apache.spark.scheduler.SchedulingMode._
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.util.{Clock, SystemClock, Utils}
 
+import org.apache.hadoop.mapred.FileSplit
+import org.apache.spark.rdd.{HadoopPartition, HadoopRDD}
 /**
  * Schedules the tasks within a single TaskSet in the TaskSchedulerImpl. This class keeps track of
  * each task, retries tasks if they fail (up to a limited number of times), and
@@ -325,7 +327,7 @@ private[spark] class TaskSetManager(
     pendingTasksForHostSSD.getOrElse(host, ArrayBuffer())
   }
 
-  private def getPendingTasksForSSD(): ArrayBuffer[Int] = {
+  private def getPendingTasksForSSD(): (String, ArrayBuffer[Int]) = {
     var longestQueue = "" -> new ArrayBuffer[Int]
 
     for ((k, v) <- pendingTasksForHostSSD) {
@@ -338,14 +340,14 @@ private[spark] class TaskSetManager(
       logInfo("get one remote SSD task from host " + longestQueue._1)
     }
 
-    longestQueue._2
+    longestQueue
   }
 
   private def getPendingTasksForHostDisk(host: String): ArrayBuffer[Int] = {
     pendingTasksForHostDisk.getOrElse(host, ArrayBuffer())
   }
 
-  private def getPendingTasksForDisk(): ArrayBuffer[Int] = {
+  private def getPendingTasksForDisk(): (String, ArrayBuffer[Int]) = {
     var longestQueue = "" -> new ArrayBuffer[Int]
 
     for ((k, v) <- pendingTasksForHostDisk) {
@@ -358,14 +360,14 @@ private[spark] class TaskSetManager(
       logInfo("get one remote Disk task from host " + longestQueue._1)
     }
 
-    longestQueue._2
+    longestQueue
   }
 
   private def getPendingTasksForHostArchive(host: String): ArrayBuffer[Int] = {
     pendingTasksForHostArchive.getOrElse(host, ArrayBuffer())
   }
 
-  private def getPendingTasksForArchive(): ArrayBuffer[Int] = {
+  private def getPendingTasksForArchive(): (String, ArrayBuffer[Int]) = {
     var longestQueue = "" -> new ArrayBuffer[Int]
 
     for ((k, v) <- pendingTasksForHostArchive) {
@@ -378,7 +380,7 @@ private[spark] class TaskSetManager(
       logInfo("get one remote Archive task from host " + longestQueue._1)
     }
 
-    longestQueue._2
+    longestQueue
   }
 
   /**
@@ -421,6 +423,23 @@ private[spark] class TaskSetManager(
         list.remove(indexOffset)
         if (copiesRunning(index) == 0 && !successful(index)) {
           return Some(index)
+        }
+      }
+    }
+    None
+  }
+
+  private def dequeueTaskFromList(execId: String, hashmap: (
+    String, ArrayBuffer[Int])): Option[(Int, String)] = {
+    var indexOffset = hashmap._2.size
+    while (indexOffset > 0) {
+      indexOffset -= 1
+      val index = hashmap._2(indexOffset)
+      if (!executorIsBlacklisted(execId, index)) {
+        // This should almost always be list.trimEnd(1) to remove tail
+        hashmap._2.remove(indexOffset)
+        if (copiesRunning(index) == 0 && !successful(index)) {
+          return Some((index, hashmap._1))
         }
       }
     }
@@ -546,17 +565,14 @@ private[spark] class TaskSetManager(
         logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
-
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
         logInfo("dequeueTaskFrom Disk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
-
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostArchive(host))) {
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
-
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
         logInfo("dequeueTaskFrom all(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -582,18 +598,21 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
-      for (index <- dequeueTaskFromList(execId, getPendingTasksForArchive())) {
+      for ((index, host) <- dequeueTaskFromList(execId, getPendingTasksForArchive())) {
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
+        setSplitPreferLoc(index, host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
 
-      for (index <- dequeueTaskFromList(execId, getPendingTasksForDisk())) {
+      for ((index, host) <- dequeueTaskFromList(execId, getPendingTasksForDisk())) {
         logInfo("dequeueTaskFrom Disk Task List id " + index)
+        setSplitPreferLoc(index, host)
         return Some((index, TaskLocality.ANY, false))
       }
 
-      for (index <- dequeueTaskFromList(execId, getPendingTasksForSSD())) {
+      for ((index, host) <- dequeueTaskFromList(execId, getPendingTasksForSSD())) {
         logInfo("dequeueTaskFrom SSD Task List id " + index)
+        setSplitPreferLoc(index, host)
         return Some((index, TaskLocality.ANY, false))
       }
 
@@ -607,6 +626,15 @@ private[spark] class TaskSetManager(
     dequeueSpeculativeTask(execId, host, maxLocality).map {
       case (taskIndex, allowedLocality) => (taskIndex, allowedLocality, true)}
   }
+
+  private def setSplitPreferLoc(index: Int, host: String) {
+    val part = tasks(index).fetchPartition
+    val hadoopRDDPart = part.asInstanceOf[HadoopPartition]
+    val inputSplit = hadoopRDDPart.inputSplit
+    val fileSplit = inputSplit.value.asInstanceOf[FileSplit]
+    fileSplit.setPreferloc(host)
+  }
+
 
   /**
    * Respond to an offer of a single executor from the scheduler by finding a task

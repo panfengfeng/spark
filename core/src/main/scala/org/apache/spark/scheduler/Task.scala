@@ -29,7 +29,7 @@ import org.apache.spark.memory.TaskMemoryManager
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.ByteBufferInputStream
 import org.apache.spark.util.Utils
-
+import org.apache.spark._
 
 /**
  * A unit of execution. We have two kinds of Task's in Spark:
@@ -127,6 +127,8 @@ private[spark] abstract class Task[T](
   def runTask(context: TaskContext): T
 
   def preferredLocations: Seq[TaskLocation] = Nil
+
+  def fetchPartition: Partition
 
   // Map output tracker epoch. Will be set by TaskScheduler.
   var epoch: Long = -1
