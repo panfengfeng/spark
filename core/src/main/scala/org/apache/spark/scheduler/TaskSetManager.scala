@@ -272,17 +272,6 @@ private[spark] class TaskSetManager(
       }
       pendingTasksForHost.getOrElseUpdate(loc.host, new ArrayBuffer) += index
       for (rack <- sched.getRackForHost(loc.host)) {
-        loc match {
-          case e: HostTaskRamdiskLocation =>
-            pendingTasksForRackRamdisk.getOrElseUpdate(rack, new ArrayBuffer) += index
-          case e: HostTaskSSDLocation =>
-            pendingTasksForRackSSD.getOrElseUpdate(rack, new ArrayBuffer) += index
-          case e: HostTaskDiskLocation =>
-            pendingTasksForRackDisk.getOrElseUpdate(rack, new ArrayBuffer) += index
-          case e: HostTaskArchiveLocation =>
-            pendingTasksForRackArchive.getOrElseUpdate(rack, new ArrayBuffer) += index
-          case _ => Unit
-        }
         pendingTasksForRack.getOrElseUpdate(rack, new ArrayBuffer) += index
       }
     }
@@ -495,6 +484,14 @@ private[spark] class TaskSetManager(
   private def dequeueTask(execId: String, host: String, maxLocality: TaskLocality.Value)
     : Option[(Int, TaskLocality.Value, Boolean)] =
   {
+    // How to set datanode to read from, the code is as follow:
+    /*
+       val part = tasks(index).fetchpartition
+       val hadooprddpart = part.asInstanceOf[HadoopPartition]
+       val inputsplit = hadooprddpart.inputSplit
+       val filesplit = inputsplit.value.asInstanceOf[org.apache.hadoop.mapred.FileSplit]
+       filesplit.setPreferloc(host)
+       */
     for (index <- dequeueTaskFromList(execId, getPendingTasksForExecutor(execId))) {
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
@@ -506,28 +503,14 @@ private[spark] class TaskSetManager(
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostSSD(host))) {
         logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " cpuhost " + host)
-        val part = tasks(index).fetchpartition
-        val hadooprddpart = part.asInstanceOf[HadoopPartition]
-        val inputsplit = hadooprddpart.inputSplit
-        val filesplit = inputsplit.value.asInstanceOf[org.apache.hadoop.mapred.FileSplit]
-        filesplit.setPreferloc(host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
         logInfo("dequeueTaskFrom Disk(node_local) List id " + index + " cpuhost " + host)
-        val part = tasks(index).fetchpartition
-        val hadooprddpart = part.asInstanceOf[HadoopPartition]
-        val inputsplit = hadooprddpart.inputSplit
-        val filesplit = inputsplit.value.asInstanceOf[org.apache.hadoop.mapred.FileSplit]
-        filesplit.setPreferloc(host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostArchive(host))) {
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.NODE_LOCAL, false))
-      }
-      for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
-        logInfo("dequeueTaskFrom all(node_local) List id " + index + " cpuhost " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
     }
@@ -541,38 +524,6 @@ private[spark] class TaskSetManager(
     }
 
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.RACK_LOCAL)) {
-      for {
-        rack <- sched.getRackForHost(host)
-        index <- dequeueTaskFromList(execId, getPendingTasksForRackRamdisk(rack))
-      } {
-        logInfo("dequeueTaskFrom Ramdisk(rack_local) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.RACK_LOCAL, false))
-      }
-
-      for {
-        rack <- sched.getRackForHost(host)
-        index <- dequeueTaskFromList(execId, getPendingTasksForRackSSD(rack))
-      } {
-        logInfo("dequeueTaskFrom SSD(rack_local) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.RACK_LOCAL, false))
-      }
-
-      for {
-        rack <- sched.getRackForHost(host)
-        index <- dequeueTaskFromList(execId, getPendingTasksForRackDisk(rack))
-      } {
-        logInfo("dequeueTaskFrom Disk(rack_local) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.RACK_LOCAL, false))
-      }
-
-      for {
-        rack <- sched.getRackForHost(host)
-        index <- dequeueTaskFromList(execId, getPendingTasksForRackArchive(rack))
-      } {
-        logInfo("dequeueTaskFrom Archive(rack_local) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.RACK_LOCAL, false))
-      }
-
       for {
         rack <- sched.getRackForHost(host)
         index <- dequeueTaskFromList(execId, getPendingTasksForRack(rack))
@@ -597,10 +548,6 @@ private[spark] class TaskSetManager(
       }
       for (index <- dequeueTaskFromList(execId, allPendingTasksArchive)) {
         logInfo("dequeueTaskFrom all(archieve) List id " + index + " cpuhost " + host)
-        return Some((index, TaskLocality.ANY, false))
-      }
-      for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
-        logInfo("dequeueTaskFrom all(any) List id " + index + " cpuhost " + host)
         return Some((index, TaskLocality.ANY, false))
       }
     }
