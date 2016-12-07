@@ -218,7 +218,8 @@ class HadoopRDD[K, V](
 
       // Sets the thread local variable for the file's name
       split.inputSplit.value match {
-        case fs: FileSplit => SqlNewHadoopRDDState.setInputFileName(fs.getPath.toString)
+        case fs: FileSplit =>
+          SqlNewHadoopRDDState.setInputFileName(fs.getPath.toString)
         case _ => SqlNewHadoopRDDState.unsetInputFileName()
       }
 
