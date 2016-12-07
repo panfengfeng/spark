@@ -238,14 +238,14 @@ private[spark] class TaskSetManager(
     var goNextLocality = true
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == ExecutorCacheTaskLocation) {
+      if (loc.isInstanceOf[ExecutorCacheTaskLocation]) {
         pendingTasksForExecutor.getOrElseUpdate(loc.host, new ArrayBuffer) += index
         goNextLocality = false
       }
     }
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == HDFSCacheTaskLocation) {
+      if (loc.isInstanceOf[HDFSCacheTaskLocation]) {
         val exe = sched.getExecutorsAliveOnHost(loc.host)
         exe match {
           case Some(set) => {
@@ -263,28 +263,30 @@ private[spark] class TaskSetManager(
     }
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == HostTaskRamdiskLocation) {
+      if (loc.isInstanceOf[HostTaskRamdiskLocation]) {
         pendingTasksForHostRamdisk.getOrElseUpdate(loc.host, new ArrayBuffer) += index
         goNextLocality = false
       }
     }
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == HostTaskSSDLocation) {
+      if (loc.isInstanceOf[HostTaskSSDLocation]) {
         pendingTasksForHostSSD.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        logInfo("task " + index + " has SSD duplicate")
         goNextLocality = false
       }
     }
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == HostTaskDiskLocation) {
+      if (loc.isInstanceOf[HostTaskDiskLocation]) {
         pendingTasksForHostDisk.getOrElseUpdate(loc.host, new ArrayBuffer) += index
+        logInfo("task " + index + " has Disk duplicate")
         goNextLocality = false
       }
     }
 
     for (loc <- tasks(index).preferredLocations if goNextLocality) {
-      if (loc == HostTaskArchiveLocation) {
+      if (loc.isInstanceOf[HostTaskArchiveLocation]) {
         pendingTasksForHostArchive.getOrElseUpdate(loc.host, new ArrayBuffer) += index
         goNextLocality = false
       }
@@ -601,7 +603,7 @@ private[spark] class TaskSetManager(
       for ((index, host) <- dequeueTaskFromList(execId, getPendingTasksForArchive())) {
         logInfo("dequeueTaskFrom Archive(node_local) List id " + index + " host " + host)
         setSplitPreferLoc(index, host)
-        return Some((index, TaskLocality.NODE_LOCAL, false))
+        return Some((index, TaskLocality.ANY, false))
       }
 
       for ((index, host) <- dequeueTaskFromList(execId, getPendingTasksForDisk())) {
