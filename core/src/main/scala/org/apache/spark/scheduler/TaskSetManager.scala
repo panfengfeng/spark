@@ -467,16 +467,22 @@ private[spark] class TaskSetManager(
     for (index <- dequeueTaskFromList(execId, getPendingTasksForExecutor(execId))) {
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
-/*
+
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostRamdisk(host))) {
         logInfo("dequeueTaskFrom Ramdisk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
+      for (index <- dequeueTaskFromList(execId, allPendingTasksSSD)) {
+        logInfo("dequeueTaskFrom all(SSD) List id " + index + " host " + host)
+        return Some((index, TaskLocality.ANY, false))
+      }
+      /*
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostSSD(host))) {
         logInfo("dequeueTaskFrom SSD(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
+      */
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHostDisk(host))) {
         logInfo("dequeueTaskFrom Disk(node_local) List id " + index + " host " + host)
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -490,7 +496,6 @@ private[spark] class TaskSetManager(
         return Some((index, TaskLocality.NODE_LOCAL, false))
       }
     }
-*/
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NO_PREF)) {
       // Look for noPref tasks after NODE_LOCAL for minimize cross-rack traffic
       for (index <- dequeueTaskFromList(execId, pendingTasksWithNoPrefs)) {
@@ -514,10 +519,12 @@ private[spark] class TaskSetManager(
         logInfo("dequeueTaskFrom all(Ramdisk) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
       }
+      /*
       for (index <- dequeueTaskFromList(execId, allPendingTasksSSD)) {
         logInfo("dequeueTaskFrom all(SSD) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
       }
+      */
       for (index <- dequeueTaskFromList(execId, allPendingTasksDisk)) {
         logInfo("dequeueTaskFrom all(Disk) List id " + index + " host " + host)
         return Some((index, TaskLocality.ANY, false))
