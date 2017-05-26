@@ -371,7 +371,7 @@ private[spark] class TaskSetManager(
     for (index <- dequeueTaskFromList(execId, getPendingTasksForExecutor(execId))) {
       return Some((index, TaskLocality.PROCESS_LOCAL, false))
     }
-
+/*
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.NODE_LOCAL)) {
       for (index <- dequeueTaskFromList(execId, getPendingTasksForHost(host))) {
         return Some((index, TaskLocality.NODE_LOCAL, false))
@@ -393,7 +393,7 @@ private[spark] class TaskSetManager(
         return Some((index, TaskLocality.RACK_LOCAL, false))
       }
     }
-
+*/
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
         return Some((index, TaskLocality.ANY, false))
