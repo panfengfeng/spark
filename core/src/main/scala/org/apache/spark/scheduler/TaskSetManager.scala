@@ -396,6 +396,7 @@ private[spark] class TaskSetManager(
 */
     if (TaskLocality.isAllowed(maxLocality, TaskLocality.ANY)) {
       for (index <- dequeueTaskFromList(execId, allPendingTasks)) {
+        logInfo("dequeueTaskFrom all(ramdisk) List id " + index + " cpuhost " + host)
         return Some((index, TaskLocality.ANY, false))
       }
     }
